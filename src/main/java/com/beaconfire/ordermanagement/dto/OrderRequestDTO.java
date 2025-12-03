@@ -25,7 +25,7 @@ public class OrderRequestDTO {
 	private String userId;
 	
 	@NotNull(message = "Customer ID is required.")
-	private Long shippingAddreddId;
+	private Long shippingAddressId;
 	
 	@NotBlank(message = "Payment method cannot be empty.")
 	private String paymentMethod;

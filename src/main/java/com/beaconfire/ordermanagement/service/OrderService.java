@@ -254,11 +254,19 @@ public class OrderService {
 		Order order = orderRepo.findById(orderId)
 				.orElseThrow(() -> new OrderNotFoundException("Order not found with ID: " + orderId));
 		
-		// 2. apply business rule: can only cancel if the status is Delivered
-		validateRreturnEligibility(order);
+		// 2. apply business rule:
+		// 2.1 can only cancel if the status is Delivered
+		validateReturnEligibility(order);
+		
+		// 2.2. validate items in the order
+		validateReturnItems(order, requestDto.getItemsToReturn());
 		
 		// 3. update status
-		order.setStatus(OrderStatus.RETURNED);
+		if (!order.isPartialReturn()){
+			order.setStatus(OrderStatus.RETURNED);
+		} else {
+			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
+		}
 		
 		// 4. save and return DTO
 		Order savedOrder = orderRepo.save(order);
@@ -316,10 +324,15 @@ public class OrderService {
 	}
 	
 	
-	private void validateRreturnEligibility(Order order){
+	private void validateReturnEligibility(Order order){
 		OrderStatus status = order.getStatus();
 		if(status != OrderStatus.DELIVERED){
 			throw new IllegalStateException("Order ID " + order.getId() + "cannot be returned as it has not been delivered.");
 		}
+	}
+	
+	public void validateReturnItems(Order order,
+	                                List<ReturnItemDTO> itemsToReturn){
+		
 	}
 }

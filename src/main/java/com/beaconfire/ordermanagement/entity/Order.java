@@ -47,5 +47,18 @@ public class Order {
 	private String idempotencyKey;
 	
 	// for cancel or return an order (refund)
+	@Column(nullable = true)
 	private String paymentTransactionId;
+	
+	@Column(nullable = true)
+	private boolean isPartialReturn = false;
+	
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+	private List<ReturnedItem> returnedItems = new ArrayList<>();
+	
+	// helper method
+	public void addReturnedItem(ReturnedItem returnedItem){
+		returnedItems.add(returnedItem);
+		returnedItem.setOrder(this);        // set both sides of relationship
+	}
 }

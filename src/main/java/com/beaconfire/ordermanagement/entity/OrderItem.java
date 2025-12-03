@@ -37,8 +37,10 @@ public class OrderItem {
 	// product snapshot
 	@Column(name="product_id")
 	private String productId;
+	
 	private String productName;
 	private BigDecimal unitPrice;
 	private Integer quantity;
 	private BigDecimal subtotal;
+	private Integer returnedQuantity = 0;
 }
