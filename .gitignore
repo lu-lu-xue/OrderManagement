@@ -37,6 +37,7 @@ build/
 
 # ignore local configuration with secrets
 application-*.properties
+application-local.properties
 *-local.properties
 application.properties
 
