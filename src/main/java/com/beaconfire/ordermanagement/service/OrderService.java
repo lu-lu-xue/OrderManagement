@@ -9,6 +9,7 @@ import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.Order;
 import com.beaconfire.ordermanagement.entity.OrderItem;
 import com.beaconfire.ordermanagement.entity.OrderStatus;
+import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import feign.FeignException;
@@ -21,10 +22,9 @@ import org.springframework.stereotype.Service;
 import java.lang.IllegalStateException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * @author luluxue
@@ -259,13 +259,31 @@ public class OrderService {
 		validateReturnEligibility(order);
 		
 		// 2.2. validate items in the order
-		validateReturnItems(order, requestDto.getItemsToReturn());
+		boolean isPartial = validateReturnItems(order, requestDto);
 		
 		// 3. update status
-		if (!order.isPartialReturn()){
+		if (!isPartial){
+			order.setPartialReturn(false);
 			order.setStatus(OrderStatus.RETURNED);
 		} else {
+			order.setPartialReturn(true);
 			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
+		}
+		
+		// 3.2 create Order
+		for (ReturnItemDTO returnItemDto: requestDto.getItemsToReturn()){
+			OrderItem orderItem = findOrderItem(order, returnItemDto.getProductId());
+			ReturnedItem returnedItem = ReturnedItem.builder()
+					.orderItem(orderItem)
+					.quantity(returnItemDto.getQuantity())
+					.returnReason(requestDto.getReturnReasonCode())
+					.build();
+			
+			// set up the bi-directional relationship
+			orderItem.addReturnedItem(returnedItem);
+			
+			// 3.3 update OrderItem returnedQuantity
+			orderItem.setReturnedQuantity(orderItem.getReturnedQuantity() + returnItemDto.getQuantity());
 		}
 		
 		// 4. save and return DTO
@@ -276,7 +294,7 @@ public class OrderService {
 		publishInventoryRestockEvent(savedOrder);
 		
 		// 6. publish an event to paymentService
-		publishRefundEvent(savedOrder, requestDto.getReturnReasonCode(), true);
+		publishRefundEvent(savedOrder, requestDto.getReturnReasonCode(), isPartial);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -308,7 +326,7 @@ public class OrderService {
 		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
 	}
 	
-	private void publishRefundEvent(Order order, String reasonCode, boolean ifFullRefund){
+	private void publishRefundEvent(Order order, String reasonCode, boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
@@ -316,7 +334,7 @@ public class OrderService {
 				order.getTotalAmount(),
 				order.getUserId(),
 				reasonCode,
-				ifFullRefund       // it's a full order cancellation
+				isFullRefund       // it's a full order cancellation
 		);
 		
 		// 2 publish the refund event
@@ -331,8 +349,46 @@ public class OrderService {
 		}
 	}
 	
-	public void validateReturnItems(Order order,
-	                                List<ReturnItemDTO> itemsToReturn){
+	public boolean validateReturnItems(Order order,
+	                                   ReturnOrderRequestDTO requestDto){
+		List<ReturnItemDTO> itemsToReturn = requestDto.getItemsToReturn();
+		// 1. map for quick lookup of original order items by productId
+		Map<String, OrderItem> originalItemsMap = order.getItems().stream()
+				.collect(Collectors.toMap(OrderItem::getProductId, Function.identity()));
 		
+		// init
+		int totalOriginalQuantity = 0;
+		int totalReturnedQuantity = 0;
+		
+		for (ReturnItemDTO returnItemDTO: itemsToReturn){
+			OrderItem originalItem = originalItemsMap.get(returnItemDTO.getProductId());
+			
+			// 1. validation: Item must exist in the original order
+			if (originalItem == null){
+				throw new InvalidReturnRequestException("Product " + returnItemDTO.getProductId() + " was not part of the original order.");
+			}
+			
+			// 2. validation: check if the quantity is valid
+			int remaining = originalItem.getRemainingQuantity();
+			if (returnItemDTO.getQuantity() > remaining){
+				throw new InvalidReturnRequestException("Cannot return " + returnItemDTO.getQuantity() + " units. Only " + originalItem.getQuantity() + " are eligible for return.");
+			}
+			
+			// 3. Determine if this is a full or partial return
+			totalOriginalQuantity += originalItem.getQuantity();
+			totalReturnedQuantity += returnItemDTO.getQuantity();
+			
+		}
+		// return true if returning entire order
+		return totalOriginalQuantity == totalReturnedQuantity;
+	}
+	
+	public OrderItem findOrderItem(Order order, String productId){
+		for (OrderItem orderItem: order.getItems()){
+			if(orderItem.getProductId().equals(productId)){
+				return orderItem;
+			}
+		}
+		return null;
 	}
 }

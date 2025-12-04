@@ -92,4 +92,17 @@ public class GlobalExceptionHandler {
 		
 		return new ResponseEntity<>(errorResponse, HttpStatus.SERVICE_UNAVAILABLE);
 	}
+	
+	@ExceptionHandler(InvalidReturnRequestException.class)
+	public ResponseEntity<ErrorResponse> handleIvalidReturnRequest(InvalidReturnRequestException ex,
+	                                                               HttpServletRequest request){
+		log.error("InvalidReturnRequestException: {}", ex.getMessage());
+		ErrorResponse errorResponse = ErrorResponse.builder()
+				.path(request.getRequestURI())
+				.status(HttpStatus.BAD_REQUEST.value())
+				.error(ex.getMessage())
+				.build();
+		
+		return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+	}
 }

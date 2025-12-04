@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -21,10 +23,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder
 public class OrderItem {
-//	@Id
-//	@Column(name="order_item_id", updatable=false, nullable=false)
-//	private String id = UUID.randomUUID().toString();
-	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -33,6 +31,9 @@ public class OrderItem {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "order_id", nullable=false)
 	private Order order;
+	
+	@OneToMany(mappedBy = "orderItem")
+	private List<ReturnedItem> returnedItems = new ArrayList<>();
 	
 	// product snapshot
 	@Column(name="product_id")
@@ -43,4 +44,14 @@ public class OrderItem {
 	private Integer quantity;
 	private BigDecimal subtotal;
 	private Integer returnedQuantity = 0;
+	
+	public Integer getRemainingQuantity(){
+		return quantity - returnedQuantity;
+	}
+	
+	// helper method
+	public void addReturnedItem(ReturnedItem returnedItem){
+		returnedItems.add(returnedItem);
+		returnedItem.setOrderItem(this);        // set both sides of relationship
+	}
 }

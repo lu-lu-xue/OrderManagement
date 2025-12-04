@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * @author luluxue
@@ -53,12 +54,19 @@ public class Order {
 	@Column(nullable = true)
 	private boolean isPartialReturn = false;
 	
-	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-	private List<ReturnedItem> returnedItems = new ArrayList<>();
+//	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+//	private List<ReturnedItem> returnedItems = new ArrayList<>();
 	
-	// helper method
-	public void addReturnedItem(ReturnedItem returnedItem){
-		returnedItems.add(returnedItem);
-		returnedItem.setOrder(this);        // set both sides of relationship
+//	// helper method
+//	public void addReturnedItem(ReturnedItem returnedItem){
+//		returnedItems.add(returnedItem);
+//		returnedItem.setOrder(this);        // set both sides of relationship
+//	}
+	
+	// get all returnedItems
+	public List<ReturnedItem> getAllReturnedItems(){
+		return items.stream()
+				.flatMap(item -> item.getReturnedItems().stream())
+				.collect(Collectors.toList());
 	}
 }

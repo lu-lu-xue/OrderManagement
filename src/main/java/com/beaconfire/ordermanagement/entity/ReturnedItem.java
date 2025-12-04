@@ -24,25 +24,25 @@ public class ReturnedItem {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private String id;
 	
+//	@ManyToOne(fetch = FetchType.LAZY)
+//	@JoinColumn(name = "order_id", nullable = false)
+//	private Order order;
+	
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "order_id", nullable = false)
-	private Order order;
-	
-	@Column(name = "product_id", nullable = false)
-	private String productId;
-	
-	@Column(name = "product_name")
-	private String productName;
+	@JoinColumn(name = "order_item_id", nullable = false)
+	private OrderItem orderItem;
 	
 	@Column(nullable = false)
 	private Integer quantity;
-	
-	@Column(name = "refund_amount", precision = 10, scale = 2)
-	private BigDecimal refundAmount;
 	
 	@Column(name = "return_reason")
 	private String returnReason;
 	
 	@Column(name = "returned_at")
 	private LocalDateTime returnedAt;
+	
+	// access Order through OrderItem
+	public Order getOrder(){
+		return orderItem.getOrder();
+	}
 }
