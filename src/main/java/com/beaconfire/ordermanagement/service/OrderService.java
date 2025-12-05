@@ -242,7 +242,9 @@ public class OrderService {
 		publishInventoryRestockEvent(savedOrder);
 		
 		// 6. publish an event to paymentService
-		publishRefundEvent(savedOrder, requestDto.getCancelReasonCode(), false);
+		// 6.1 get the full cancellation
+		BigDecimal fullRefundAmount = order.getTotalAmount();
+		publishRefundEvent(savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), false);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -259,10 +261,10 @@ public class OrderService {
 		validateReturnEligibility(order);
 		
 		// 2.2. validate items in the order
-		boolean isPartial = validateReturnItems(order, requestDto);
+		boolean isFullReturn = validateReturnItems(order, requestDto);
 		
 		// 3. update status
-		if (!isPartial){
+		if (!isFullReturn){
 			order.setPartialReturn(false);
 			order.setStatus(OrderStatus.RETURNED);
 		} else {
@@ -294,7 +296,12 @@ public class OrderService {
 		publishInventoryRestockEvent(savedOrder);
 		
 		// 6. publish an event to paymentService
-		publishRefundEvent(savedOrder, requestDto.getReturnReasonCode(), isPartial);
+		if (isFullReturn){
+			publishRefundEvent(savedOrder, order.getTotalAmount(), requestDto.getReturnReasonCode(), isFullReturn);
+		} else {
+			BigDecimal refundTotal = calculateRefundAmount(order, requestDto.getItemsToReturn());
+			publishRefundEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
+		}
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -326,12 +333,12 @@ public class OrderService {
 		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
 	}
 	
-	private void publishRefundEvent(Order order, String reasonCode, boolean isFullRefund){
+	private void publishRefundEvent(Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
 				order.getPaymentTransactionId(),
-				order.getTotalAmount(),
+				refundAmount,
 				order.getUserId(),
 				reasonCode,
 				isFullRefund       // it's a full order cancellation
@@ -349,7 +356,7 @@ public class OrderService {
 		}
 	}
 	
-	public boolean validateReturnItems(Order order,
+	private boolean validateReturnItems(Order order,
 	                                   ReturnOrderRequestDTO requestDto){
 		List<ReturnItemDTO> itemsToReturn = requestDto.getItemsToReturn();
 		// 1. map for quick lookup of original order items by productId
@@ -383,12 +390,28 @@ public class OrderService {
 		return totalOriginalQuantity == totalReturnedQuantity;
 	}
 	
-	public OrderItem findOrderItem(Order order, String productId){
+	private OrderItem findOrderItem(Order order, String productId){
 		for (OrderItem orderItem: order.getItems()){
 			if(orderItem.getProductId().equals(productId)){
 				return orderItem;
 			}
 		}
 		return null;
+	}
+	
+	// calculate the full refundAmount for returning items from an order
+	private BigDecimal calculateRefundAmount(Order order, List<ReturnItemDTO> itemsToReturn){
+		BigDecimal totalRefund = BigDecimal.ZERO;
+		
+		// 1. calculate the gross value of the returned items
+		for (ReturnItemDTO returnItem: itemsToReturn){
+			OrderItem item = findOrderItem(order, returnItem.getProductId());
+			
+			// calculate the price before applying any other discounts
+			BigDecimal grossItemValue = item.getUnitPrice().multiply(BigDecimal.valueOf(returnItem.getQuantity()));
+			totalRefund = totalRefund.add(grossItemValue);
+		}
+		
+		return totalRefund;
 	}
 }

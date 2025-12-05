@@ -57,11 +57,6 @@ public class Order {
 //	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
 //	private List<ReturnedItem> returnedItems = new ArrayList<>();
 	
-//	// helper method
-//	public void addReturnedItem(ReturnedItem returnedItem){
-//		returnedItems.add(returnedItem);
-//		returnedItem.setOrder(this);        // set both sides of relationship
-//	}
 	
 	// get all returnedItems
 	public List<ReturnedItem> getAllReturnedItems(){
