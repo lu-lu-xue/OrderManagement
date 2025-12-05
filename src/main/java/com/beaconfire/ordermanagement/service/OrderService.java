@@ -265,11 +265,11 @@ public class OrderService {
 		
 		// 3. update status
 		if (!isFullReturn){
-			order.setPartialReturn(false);
-			order.setStatus(OrderStatus.RETURNED);
-		} else {
-			order.setPartialReturn(true);
+			order.setFullReturn(false);
 			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
+		} else {
+			order.setFullReturn(true);
+			order.setStatus(OrderStatus.RETURNED);
 		}
 		
 		// 3.2 create Order
@@ -396,7 +396,10 @@ public class OrderService {
 				return orderItem;
 			}
 		}
-		return null;
+		
+		throw new InvalidReturnRequestException(
+				"Product " + productId + " not found in order " + order.getId()
+		);
 	}
 	
 	// calculate the full refundAmount for returning items from an order

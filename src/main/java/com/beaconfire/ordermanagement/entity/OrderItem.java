@@ -51,6 +51,10 @@ public class OrderItem {
 	
 	// helper method
 	public void addReturnedItem(ReturnedItem returnedItem){
+		// null check
+		if (returnedItem == null){
+			throw new IllegalArgumentException("ReturnedItem cannot be null.");
+		}
 		returnedItems.add(returnedItem);
 		returnedItem.setOrderItem(this);        // set both sides of relationship
 	}

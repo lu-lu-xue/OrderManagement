@@ -52,7 +52,7 @@ public class Order {
 	private String paymentTransactionId;
 	
 	@Column(nullable = true)
-	private boolean isPartialReturn = false;
+	private boolean isFullReturn = false;
 	
 //	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
 //	private List<ReturnedItem> returnedItems = new ArrayList<>();
