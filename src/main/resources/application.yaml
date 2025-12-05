@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: OrderManagement
+
+#sets the default maximum size allowed for any page request
+  data:
+    web:
+      pageable:
+        max-page-size=100
+
+  kafka:
+    producer:
+      server:
+        port: 8080
+      spring:
+        # general Kafka config
+        kafka:
+          # the address(es) of your kafka brokers
+          bootstrap-servers: localhost:9092, kafka-broker-1:9092
+          # producer-specific config (for sending message)
+          producer:
+            key-serializer:
+              org.apache.kafka.common.serialization.StringSerializer
+            value-serializer:
+              org.springframework.kafka.serialization.JsonSerializer
+              acks:all # ensure high reliability
+
+
+

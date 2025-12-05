@@ -299,6 +299,10 @@ public class OrderService {
 		if (isFullReturn){
 			publishRefundEvent(savedOrder, order.getTotalAmount(), requestDto.getReturnReasonCode(), isFullReturn);
 		} else {
+			// financial calculation for refundTotal
+			// it can change in the future if there are
+			// strategies like, coupon, promotion, discount
+			// .......
 			BigDecimal refundTotal = calculateRefundAmount(order, requestDto.getItemsToReturn());
 			publishRefundEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
 		}
