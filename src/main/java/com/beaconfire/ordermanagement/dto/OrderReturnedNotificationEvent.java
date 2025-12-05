@@ -18,8 +18,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class OrderReturnedNotificationEvent {
 	private String orderId;
-	private String userId;
-	private BigDecimal totalAmount;
+	private String userId;   // lookup user email
+	private BigDecimal refundAmount;
+	private String returnReason;
+	private boolean isFullReturn;
 	private LocalDateTime returnedAt;
-	private String orderDetailsURL;
 }

@@ -243,8 +243,20 @@ public class OrderService {
 		
 		// 6. publish an event to paymentService
 		// 6.1 get the full cancellation
-		BigDecimal fullRefundAmount = order.getTotalAmount();
-		publishRefundEvent(savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), false);
+		BigDecimal fullRefundAmount = savedOrder.getTotalAmount();
+		publishRefundEvent(savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
+		
+		// 7. publish an event to notificationService
+		OrderCancelledNotificationEvent notificationEvent = new OrderCancelledNotificationEvent(
+				savedOrder.getId(),
+				savedOrder.getUserId(),
+				fullRefundAmount,
+				requestDto.getCancelReasonCode(),
+				LocalDateTime.now()
+		);
+		
+		// 7.2 publish the notificationEvent
+		notificationEventProducer.sendOrderCancelledNotificationEvent(notificationEvent);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -265,7 +277,6 @@ public class OrderService {
 		
 		// 3. update status
 		if (!isFullReturn){
-			order.setFullReturn(false);
 			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
 		} else {
 			order.setFullReturn(true);
@@ -273,20 +284,7 @@ public class OrderService {
 		}
 		
 		// 3.2 create Order
-		for (ReturnItemDTO returnItemDto: requestDto.getItemsToReturn()){
-			OrderItem orderItem = findOrderItem(order, returnItemDto.getProductId());
-			ReturnedItem returnedItem = ReturnedItem.builder()
-					.orderItem(orderItem)
-					.quantity(returnItemDto.getQuantity())
-					.returnReason(requestDto.getReturnReasonCode())
-					.build();
-			
-			// set up the bi-directional relationship
-			orderItem.addReturnedItem(returnedItem);
-			
-			// 3.3 update OrderItem returnedQuantity
-			orderItem.setReturnedQuantity(orderItem.getReturnedQuantity() + returnItemDto.getQuantity());
-		}
+		createReturnedItems(order, requestDto);
 		
 		// 4. save and return DTO
 		Order savedOrder = orderRepo.save(order);
@@ -296,16 +294,16 @@ public class OrderService {
 		publishInventoryRestockEvent(savedOrder);
 		
 		// 6. publish an event to paymentService
-		if (isFullReturn){
-			publishRefundEvent(savedOrder, order.getTotalAmount(), requestDto.getReturnReasonCode(), isFullReturn);
-		} else {
-			// financial calculation for refundTotal
-			// it can change in the future if there are
-			// strategies like, coupon, promotion, discount
-			// .......
-			BigDecimal refundTotal = calculateRefundAmount(order, requestDto.getItemsToReturn());
-			publishRefundEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
-		}
+
+		// financial calculation for refundTotal
+		// it can change in the future if there are
+		// strategies like, coupon, promotion, discount
+		// .......
+		BigDecimal refundTotal = isFullReturn ? order.getTotalAmount() : calculateRefundAmount(order, requestDto.getItemsToReturn());
+		publishRefundEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
+		
+		// 7. publish an event to notificationService
+		publishReturnNotificationEvent(savedOrder, refundTotal, requestDto, isFullReturn);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -319,6 +317,27 @@ public class OrderService {
 		
 		if (status == OrderStatus.CANCELLED){
 			throw new IllegalStateException("Order ID " + order.getId() + "cannot be cancelled as it has already cancelled.");
+		}
+	}
+	
+	private void createReturnedItems(Order order, ReturnOrderRequestDTO requestDto){
+		// create returnedItems
+		for (ReturnItemDTO returnItemDto: requestDto.getItemsToReturn()){
+			OrderItem orderItem = findOrderItem(order, returnItemDto.getProductId());
+			ReturnedItem returnedItem = ReturnedItem.builder()
+					.orderItem(orderItem)
+					.quantity(returnItemDto.getQuantity())
+					.returnReason(requestDto.getReturnReasonCode())
+					.returnedAt(LocalDateTime.now())
+					.build();
+			
+			// set up the bi-directional relationship
+			orderItem.addReturnedItem(returnedItem);
+			
+			// update OrderItem returnedQuantity
+			orderItem.setReturnedQuantity(
+					orderItem.getReturnedQuantity() + returnItemDto.getQuantity()
+			);
 		}
 	}
 	
@@ -350,6 +369,20 @@ public class OrderService {
 		
 		// 2 publish the refund event
 		paymentProducer.sendPaymentRefundEvent(orderRefundRequestedEvent);
+	}
+	
+	private void publishReturnNotificationEvent(Order order, BigDecimal refundTotal, ReturnOrderRequestDTO requestDto, boolean isFullReturn){
+		OrderReturnedNotificationEvent notificationEvent = new OrderReturnedNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				refundTotal,
+				requestDto.getReturnReasonCode(),
+				isFullReturn,
+				LocalDateTime.now()
+		);
+		
+		// publish the notificationEvent
+		notificationEventProducer.sendOrderReturnedNotificationEvent(notificationEvent);
 	}
 	
 	

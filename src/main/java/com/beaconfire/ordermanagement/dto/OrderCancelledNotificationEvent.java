@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class OrderCancelledNotificationEvent {
 	private String orderId;
-	private String userId;
-	private BigDecimal totalAmount;
+	private String userId;  // lookup email for the user
+	private BigDecimal refundAmount;
+	private String cancellationReason;
 	private LocalDateTime cancelledAt;
-	private String orderDetailsURL;
 }
