@@ -1,6 +1,7 @@
 package com.beaconfire.ordermanagement.configuration;
 
 import com.beaconfire.ordermanagement.service.OrderService;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,4 +17,9 @@ public class OrderEventListener {
 	}
 	
 	// listening for inventory confirmation
+	@KafkaListener(
+			topics = "${app.kafka.topics.payment-confirmed}",
+			groupId = "order-payment-status"
+	)
+	
 }

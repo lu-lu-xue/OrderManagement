@@ -54,12 +54,14 @@ spring:
       enable-auto-commit: false
 
     listener:
-      concurrency: 3    # 3 consumer threads per app instance
+      concurrency: 3    # 3 consumer threads/instances per app instance
 
 # Custom Application-specific topics (defined outside the spring.kafka block)
 app:
   kafka:
     topics:
+      # these are the producer topics(OrderService
+      # is the sender)
       inventory-reduction: inventory.order-placed
       inventory-restock: inventory.restock-requests
 
@@ -71,5 +73,13 @@ app:
       payment-return: payment.order-returned-refund
       payment-cancel: payment.order-cancelled-refund
 
+      # === new consumer topics for OrderService===
+      payment-confirmed: payment.charge-confirmed
+      payment-refund-done: payment.refund-completed
 
+      inventory-reserved: inventory.reserved-confirmation
+
+      # consumer topics from shipmentService
+      shipment-shipped: shipment.started
+      shipment-delivered: shipment.delivered
 
