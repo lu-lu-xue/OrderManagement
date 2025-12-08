@@ -16,7 +16,7 @@ spring:
         # general Kafka config
         kafka:
           # the address(es) of the kafka brokers
-          bootstrap-servers: localhost:9092, kafka-broker-1:9092
+          bootstrap-servers: localho st:9092, kafka-broker-1:9092
 
           # producer-specific config (for sending messages)
           producer:
@@ -25,6 +25,28 @@ spring:
             value-serializer:
               org.springframework.kafka.serialization.JsonSerializer
               acks:all # ensure high reliability
+    # new consumer config block
+    consumer:
+      # CRITICAL: unique identifier for this service's consumer instance
+      # All instances of the OrderService will belong to this group
+      group-id: order-service-consumer-group
+
+      # define how to deserialize the KEY of the incoming message
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # define how to deserialize the VALUE of the incoming message
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # required for JSON Deserializer to trust the shared DTO packages
+      properties:
+        spring.json.trusted.packages: "com.beaconfire.ordermanagement"
+
+      # define where to start consuming messages when a new group is created
+      # 'earliest' (from beginning) or 'latest' (from now).
+      # 'earliest' is safer for initial runs
+      auto-offset-reset: earliest
+
+      # set to false if you want manual control over commit(safer for transaction logic)
+      enable-auto-commit: false
+
 
 # Custom Application-specific topics (defined outside the spring.kafka block)
 app:
