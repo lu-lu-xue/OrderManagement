@@ -41,3 +41,7 @@ application-local.properties
 *-local.properties
 application.properties
 
+# ignore practice file
+docker-compose.yaml
+kubernetes.yaml
+Dockerfile
