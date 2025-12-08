@@ -104,8 +104,7 @@ public class OrderService {
 					.build();
 			
 			items.add(orderItem);
-//			grandTotal.add(subtotal);       // function of BigDecimal
-			grandTotal = grandTotal.add(subtotal);
+			grandTotal = grandTotal.add(subtotal); // function of BigDecimal
 		}
 		
 		// 2. request payment
@@ -244,7 +243,7 @@ public class OrderService {
 		// 6. publish an event to paymentService
 		// 6.1 get the full cancellation
 		BigDecimal fullRefundAmount = savedOrder.getTotalAmount();
-		publishRefundEvent(savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
+		publishRefundEvent("cancel", savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
 		
 		// 7. publish an event to notificationService
 		OrderCancelledNotificationEvent notificationEvent = new OrderCancelledNotificationEvent(
@@ -300,7 +299,7 @@ public class OrderService {
 		// strategies like, coupon, promotion, discount
 		// .......
 		BigDecimal refundTotal = isFullReturn ? order.getTotalAmount() : calculateRefundAmount(order, requestDto.getItemsToReturn());
-		publishRefundEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
+		publishRefundEvent("return", savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
 		
 		// 7. publish an event to notificationService
 		publishReturnNotificationEvent(savedOrder, refundTotal, requestDto, isFullReturn);
@@ -356,7 +355,7 @@ public class OrderService {
 		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
 	}
 	
-	private void publishRefundEvent(Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
+	private void publishRefundEvent(String topic, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
@@ -368,7 +367,12 @@ public class OrderService {
 		);
 		
 		// 2 publish the refund event
-		paymentProducer.sendPaymentRefundEvent(orderRefundRequestedEvent);
+		if (topic.equals("return")){
+			paymentProducer.sendPaymentRefundEvent(paymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
+		} else {
+			paymentProducer.sendPaymentRefundEvent(paymentProducer.CANCELLED_TOPIC, orderRefundRequestedEvent);
+		}
+		
 	}
 	
 	private void publishReturnNotificationEvent(Order order, BigDecimal refundTotal, ReturnOrderRequestDTO requestDto, boolean isFullReturn){
@@ -440,6 +444,7 @@ public class OrderService {
 	}
 	
 	// calculate the full refundAmount for returning items from an order
+	// it can contain more details: coupon, promotion, discount, shipment...
 	private BigDecimal calculateRefundAmount(Order order, List<ReturnItemDTO> itemsToReturn){
 		BigDecimal totalRefund = BigDecimal.ZERO;
 		

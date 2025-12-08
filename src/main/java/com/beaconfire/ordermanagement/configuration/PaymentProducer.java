@@ -11,13 +11,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentProducer {
 	private final KafkaTemplate<String, OrderRefundRequestedEvent> kafkaTemplate;
-	private static final String CANCELLED_TOPIC = "payment.order-refund";
+	public static final String CANCELLED_TOPIC = "payment.order-cancelled-refund";
+	public static final String RETURNED_TOPIC = "payment.order-returned-refund";
 	
 	public PaymentProducer(KafkaTemplate<String, OrderRefundRequestedEvent> kafkaTemplate){
 		this.kafkaTemplate = kafkaTemplate;
 	}
 	
-	public void sendPaymentRefundEvent(OrderRefundRequestedEvent refundEvent){
-		kafkaTemplate.send(CANCELLED_TOPIC, refundEvent.getOrderId(),refundEvent);
+	public void sendPaymentRefundEvent(String topic, OrderRefundRequestedEvent refundEvent){
+		kafkaTemplate.send(topic, refundEvent.getOrderId(),refundEvent);
 	}
 }

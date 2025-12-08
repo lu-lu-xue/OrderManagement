@@ -15,15 +15,31 @@ spring:
       spring:
         # general Kafka config
         kafka:
-          # the address(es) of your kafka brokers
+          # the address(es) of the kafka brokers
           bootstrap-servers: localhost:9092, kafka-broker-1:9092
-          # producer-specific config (for sending message)
+
+          # producer-specific config (for sending messages)
           producer:
             key-serializer:
               org.apache.kafka.common.serialization.StringSerializer
             value-serializer:
               org.springframework.kafka.serialization.JsonSerializer
               acks:all # ensure high reliability
+
+# Custom Application-specific topics (defined outside the spring.kafka block)
+app:
+  kafka:
+    topics:
+      inventory-reduction: inventory.order-placed
+      inventory-restock: inventory.restock-requests
+
+      notification-create: notification.order-placed
+      notification-cancel: notification.order-cancelled
+      notification-return: notification.order-returned
+
+      payment-request: payment.charge-request
+      payment-return: payment.order-returned-refund
+      payment-cancel: payment.order-cancelled-refund
 
 
 
