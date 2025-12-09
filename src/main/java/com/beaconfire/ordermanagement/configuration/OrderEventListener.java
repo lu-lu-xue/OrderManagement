@@ -74,6 +74,6 @@ public class OrderEventListener {
 		log.info("Received Inventory Reserved event for Order: {}", event.getOrderId());
 		
 		// update the ???? orderStatus to be pending???
-		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.DELIVERED);
+		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.PROCESSING);
 	}
 }

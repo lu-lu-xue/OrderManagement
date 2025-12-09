@@ -37,7 +37,6 @@ public class OrderService {
 	private final ProductServiceClient productServiceClient;
 	private final NotificationProducer notificationEventProducer;
 	private final InventoryProducer inventoryProducer;
-	private final PaymentServiceClient paymentServiceClient;
 	private final PaymentProducer paymentProducer;
 	
 	
@@ -45,13 +44,11 @@ public class OrderService {
 	                    ProductServiceClient productServiceClient,
 	                    NotificationProducer notificationEventProducer,
 	                    InventoryProducer inventoryProducer,
-	                    PaymentServiceClient paymentServiceClient,
 	                    PaymentProducer paymentProducer){
 		this.orderRepo = orderRepo;
 		this.productServiceClient = productServiceClient;
 		this.notificationEventProducer = notificationEventProducer;
 		this.inventoryProducer = inventoryProducer;
-		this.paymentServiceClient = paymentServiceClient;
 		this.paymentProducer = paymentProducer;
 	}
 	
@@ -68,81 +65,15 @@ public class OrderService {
 		}
 		
 		// init items and subtotal
-		List<OrderItem> items = new ArrayList<>();
-		BigDecimal grandTotal = BigDecimal.ZERO;
 		
 		// 1. fetch prices, calculate subtotals, and build OrderItem
-		for (OrderItemRequestDTO itemRequest: orderRequestDto.getItems()){
-			String productId = itemRequest.getProductId();
-			Integer quantity = itemRequest.getQuantity();
-			
-			// 1a. check Inventory/availability (synchronous Feign call)
-			if (!productServiceClient.isProductAvailable(productId, quantity)) {
-				throw new InventoryNotAvailableException("Sorry, the inventory of this product is not available right now.");
-			}
-			
-			// 1b. Fetch details for financial snapshots (synch Feign call
-			
-			ProductDetailsDTO productDetails;
-			try {
-				productDetails = productServiceClient.getProductDetails(productId);
-			} catch (Exception ex) {
-				throw new ProductNotFoundException("Could not retrieve details for this product: " + productId);
-			}
-			
-			// 1c. Financial Calculation
-			BigDecimal unitPrice = productDetails.getUnitPrice();
-			BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
-			
-			// 1d. create orderItem entity
-			OrderItem orderItem = OrderItem.builder()
-					.productId(productId)
-					.productName(productDetails.getProductName())  // denormalized data
-					.unitPrice(unitPrice)                          // denormalized data
-					.quantity(quantity)
-					.subtotal(subtotal)
-					.build();
-			
-			items.add(orderItem);
-			grandTotal = grandTotal.add(subtotal); // function of BigDecimal
-		}
+		// 1.1 build OrderItem
+		List<OrderItem> items = buildOrderItems(orderRequestDto.getItems());
 		
-		// 2. request payment
-		// 2.1 validate the payment
-		// build paymentRequestDTO
-		String preGenereatedOrderId = UUID.randomUUID().toString();
-		PaymentRequestDTO paymentRequestDTO = new PaymentRequestDTO(
-				preGenereatedOrderId,
-				orderRequestDto.getUserId(),
-				grandTotal,
-				orderRequestDto.getPaymentMethodToken()
-		);
+		// 1.2 calculate the amount
+		BigDecimal grandTotal = calculateGrandTotal(items);
 		
-		// synchronous payment call
-		try{
-			PaymentResponseDTO paymentResponse = paymentServiceClient.chargeCustomer(paymentRequestDTO);
-			
-			// 1. map business logic failures
-			if (paymentResponse.getStatus().equals("FAILED")){
-				ErrorResponseDTO error = paymentResponse.getError();
-				
-				// throw specific local exception based on the payment service's code
-				switch(error.getCode()){
-					case "CARD_DECLINED":
-					case "INSUFFICIENT_FUNDS":
-						throw new PaymentFailureException(error.getMessage(), error.getCode());
-					case "INVALID_PAYLOAD":
-						throw new InvalidRequestException(error.getMessage());
-					default:
-						throw new PaymentFailureException("Unknown payment error.", error.getCode());
-				}
-			}
-		} catch(FeignException.ServiceUnavailable ex){
-			throw new PaymentServiceUnavailableException("Payment service is currently unavailable.", ex);
-		}
-		
-		// if success
-		// 2. if valid, create order entity
+		// 2. create order entity
 		Order newOrder = Order.builder()
 				.userId(orderRequestDto.getUserId())
 				.items(items)
@@ -161,8 +92,19 @@ public class OrderService {
 		// save the newOrder
 		Order savedOrder = orderRepo.save(newOrder);
 		
-		// 4. send an event to productService to reduce the inventory????
-		// 4.1 map the persisted OrderItems into the event DTO format
+		// 4. publish event for payment request
+		OrderChargeRequestEvent paymentRequestEvent = new OrderChargeRequestEvent(
+				savedOrder.getId(),
+				savedOrder.getUserId(),
+				savedOrder.getTotalAmount(),
+				orderRequestDto.getPaymentMethodToken()
+		);
+		paymentProducer.sendPaymentRequestEvent(paymentProducer.CHARGE_TOPIC, paymentRequestEvent);
+		
+		
+		
+		// 5. send an event to productService to reduce the inventory
+		// 5.1 map the persisted OrderItems into the event DTO format
 		List<ItemToReduce> itemsToReduce = savedOrder.getItems().stream()
 				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
 				.toList();
@@ -172,21 +114,18 @@ public class OrderService {
 				itemsToReduce,
 				LocalDateTime.now()
 		);
-		
-		// 4.2 publish the inventoryEvent
+		// 5.2 publish the inventoryEvent
 		inventoryProducer.sendInventoryReductionEvent(inventoryEvent);
 		
-		// 5. send an event to NotificationService for orderPlaced email
-		// 5.1 build the event
+		// 6. send an event to NotificationService for orderPlaced email
+		// 6.1 build the event
 		OrderPlacedNotificationEvent notificationEvent = new OrderPlacedNotificationEvent(
 				savedOrder.getId(),
 				savedOrder.getUserId(),
 				savedOrder.getTotalAmount(),
-				savedOrder.getCreatedAt(),
-				"orderDetailsURL"
+				savedOrder.getCreatedAt()
 		);
-		
-		// 5.2 publish the notificationEvent
+		// 6.2 publish the notificationEvent
 		notificationEventProducer.sendOrderPlacedNotificationEvent(notificationEvent);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
@@ -308,6 +247,53 @@ public class OrderService {
 	}
 	
 	// code cleaning
+	private List<OrderItem> buildOrderItems(List<OrderItemRequestDTO> orderItemDto){
+		List<OrderItem> orderItems = new ArrayList<>();
+		for (OrderItemRequestDTO itemRequest: orderItemDto){
+			String productId = itemRequest.getProductId();
+			Integer quantity = itemRequest.getQuantity();
+			
+			// 1a. check Inventory/availability (synchronous Feign call)
+			if (!productServiceClient.isProductAvailable(productId, quantity)) {
+				throw new InventoryNotAvailableException("Sorry, the inventory of this product is not available right now.");
+			}
+			
+			// 1b. Fetch details for financial snapshots (synch Feign call
+			ProductDetailsDTO productDetails;
+			try {
+				productDetails = productServiceClient.getProductDetails(productId);
+			} catch (Exception ex) {
+				throw new ProductNotFoundException("Could not retrieve details for this product: " + productId);
+			}
+			
+			// 1c. Financial Calculation
+			BigDecimal unitPrice = productDetails.getUnitPrice();
+			BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
+			
+			// 1d. create orderItem entity
+			OrderItem orderItem = OrderItem.builder()
+					.productId(productId)
+					.productName(productDetails.getProductName())  // denormalized data
+					.unitPrice(unitPrice)                          // denormalized data
+					.quantity(quantity)
+					.subtotal(subtotal)
+					.build();
+			
+			orderItems.add(orderItem);
+		}
+		
+		return orderItems;
+	}
+	
+	private BigDecimal calculateGrandTotal(List<OrderItem> orderItems){
+		BigDecimal grandTotal = BigDecimal.ZERO;
+		for (OrderItem item: orderItems){
+			grandTotal = grandTotal.add(item.getSubtotal()); // function of BigDecimal
+		}
+		
+		return grandTotal;
+	}
+	
 	private void validateCancellationEligibility(Order order){
 		OrderStatus status = order.getStatus();
 		if(status == OrderStatus.SHIPPED || status == OrderStatus.DELIVERED){

@@ -7,14 +7,14 @@ package com.beaconfire.ordermanagement.entity;
 
 public enum OrderStatus {
 	PENDING,
-	PROCESSING,
+	PAYMENT_CONFIRMED,
 	CONFIRMED,
+	PAYMENT_FAILED,
 	PREPARING_SHIPMENT,
 	SHIPPED,
 	DELIVERED,
-	
 	CANCELLED,
 	RETURNED,               // return entire order
 	PARTIALLY_RETURNED,     //partial return
-	FAILED
+	PROCESSING
 }

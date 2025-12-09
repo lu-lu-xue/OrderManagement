@@ -6,20 +6,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * @author luluxue
- * @date 2025-11-30
+ * @date 2025-12-09
  */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class OrderPlacedNotificationEvent {
+public class OrderChargeRequestEvent {
 	private String orderId;
-	private String userId;
+	private String paymentMethodToken;
 	private BigDecimal totalAmount;
-	private LocalDateTime createdAt;
-//	private String orderDetailsURL;
+	private String userId;
 }
