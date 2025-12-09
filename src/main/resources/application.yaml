@@ -75,9 +75,11 @@ app:
 
       # === new consumer topics for OrderService===
       payment-confirmed: payment.charge-confirmed
+      payment-failed: payment.charge-failed
       payment-refund-done: payment.refund-completed
 
       inventory-reserved: inventory.reserved-confirmation
+      inventory-reservation-failed: inventory.reservation-failed
 
       # consumer topics from shipmentService
       shipment-shipped: shipment.started

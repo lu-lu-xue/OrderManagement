@@ -101,8 +101,6 @@ public class OrderService {
 		);
 		paymentProducer.sendPaymentRequestEvent(paymentProducer.CHARGE_TOPIC, paymentRequestEvent);
 		
-		
-		
 		// 5. send an event to productService to reduce the inventory
 		// 5.1 map the persisted OrderItems into the event DTO format
 		List<ItemToReduce> itemsToReduce = savedOrder.getItems().stream()
@@ -444,5 +442,14 @@ public class OrderService {
 		}
 		
 		return totalRefund;
+	}
+	
+	// updateOrderStatus
+	public void updateOrderStatus(String orderId, OrderStatus orderStatus){
+		// 1. fetch the order
+		Order order = orderRepo.findById(orderId)
+				.orElseThrow(() -> new OrderNotFoundException("Order not found with ID: " + orderId));
+		
+		order.setStatus(orderStatus);
 	}
 }

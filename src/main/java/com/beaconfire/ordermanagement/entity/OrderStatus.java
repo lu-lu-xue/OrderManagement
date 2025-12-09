@@ -7,10 +7,10 @@ package com.beaconfire.ordermanagement.entity;
 
 public enum OrderStatus {
 	PENDING,
-	PAYMENT_CONFIRMED,
 	CONFIRMED,
 	PAYMENT_FAILED,
-	PREPARING_SHIPMENT,
+	INVENTORY_FAILED,
+//	PREPARING_SHIPMENT,
 	SHIPPED,
 	DELIVERED,
 	CANCELLED,

@@ -27,7 +27,16 @@ public class OrderEventListener {
 	)
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
 		log.info("Received Payment Confirmed event for Order: {}", event.getOrderId());
-		orderService.updateStatus(event.getOrderId(), orderStatus.CONFIRMED);
+		orderService.updateStatus(event.getOrderId(), OrderStatus.CONFIRMED);
+	}
+	
+	@KafkaListener(
+			topics = "${app.kafka.topics.payment-failed}",
+			groupId = "order-payment-status"
+	)
+	public void handlePaymentFailed(PaymentFailedEvent event){
+		log.info("Received Payment Failed event for Order: {}", event.getOrderId());
+		orderService.updateStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
 	}
 	
 	@KafkaListener(
@@ -47,7 +56,7 @@ public class OrderEventListener {
 	public void handleShipmentStarted(ShipmentStartedEvent event){
 		log.info("Received Shipment Started event for Order: {}", event.getOrderId());
 		
-		// update the orderStatus to shipped
+		// update the OrderStatus to shipped
 		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.SHIPPED);
 		
 		// later if a tracking number is added to Order entity
@@ -61,7 +70,7 @@ public class OrderEventListener {
 	public void handleShipmentDelivered(ShipmentDeliveredEvent event){
 		log.info("Received Shipment Delivered event for Order: {}", event.getOrderId());
 		
-		// update the orderStatus to shipped
+		// update the OrderStatus to shipped
 		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.DELIVERED);
 	}
 	
@@ -73,7 +82,19 @@ public class OrderEventListener {
 	public void handleInventoryReserved(InventoryReservedEvent event){
 		log.info("Received Inventory Reserved event for Order: {}", event.getOrderId());
 		
-		// update the ???? orderStatus to be pending???
+		// update the ???? OrderStatus to be pending???
 		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.PROCESSING);
+	}
+	
+	@KafkaListener(
+			topics = "${app.kafka.topics.inventory-reservation-failed}",
+			groupId = "order-inventory-status"
+	)
+	public void handleInventoryReservationFailed(InventoryReservationFailedEvent event){
+		log.info("Received Inventory Reservation Request Failed for Order: {}", event.getOrderId());
+		
+		// update orderStatus
+		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.INVENTORY_FAILED);
+		
 	}
 }
