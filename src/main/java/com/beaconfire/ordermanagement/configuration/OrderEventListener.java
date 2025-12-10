@@ -1,6 +1,6 @@
 package com.beaconfire.ordermanagement.configuration;
 
-import com.beaconfire.ordermanagement.dto.InventoryReductionEvent;
+import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.OrderStatus;
 import com.beaconfire.ordermanagement.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ public class OrderEventListener {
 	)
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
 		log.info("Received Payment Confirmed event for Order: {}", event.getOrderId());
-		orderService.updateStatus(event.getOrderId(), OrderStatus.CONFIRMED);
+		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.CONFIRMED);
 	}
 	
 	@KafkaListener(
@@ -36,7 +36,7 @@ public class OrderEventListener {
 	)
 	public void handlePaymentFailed(PaymentFailedEvent event){
 		log.info("Received Payment Failed event for Order: {}", event.getOrderId());
-		orderService.updateStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
+		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
 	}
 	
 	@KafkaListener(
