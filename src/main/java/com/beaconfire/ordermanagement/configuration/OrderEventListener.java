@@ -27,7 +27,7 @@ public class OrderEventListener {
 	)
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
 		log.info("Received Payment Confirmed event for Order: {}", event.getOrderId());
-		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.CONFIRMED);
+		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.PAYMENT_CONFIRMED);
 	}
 	
 	@KafkaListener(
@@ -96,5 +96,6 @@ public class OrderEventListener {
 		// update orderStatus
 		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.INVENTORY_FAILED);
 		
+		// publish a event back to PaymentService to refund the customer immediately
 	}
 }
