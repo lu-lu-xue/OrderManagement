@@ -21,32 +21,7 @@ public class OrderEventListener {
 	}
 	
 	// listening for paymentService
-	@KafkaListener(
-			topics = "${app.kafka.topics.payment-confirmed}",
-			groupId = "order-payment-status"
-	)
-	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
-		log.info("Received Payment Confirmed event for Order: {}", event.getOrderId());
-		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.PAYMENT_CONFIRMED);
-	}
 	
-	@KafkaListener(
-			topics = "${app.kafka.topics.payment-failed}",
-			groupId = "order-payment-status"
-	)
-	public void handlePaymentFailed(PaymentFailedEvent event){
-		log.info("Received Payment Failed event for Order: {}", event.getOrderId());
-		orderService.updateOrderStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
-	}
-	
-	@KafkaListener(
-			topics = "${app.kafka.topics.payment-refund-done}",
-			groupId = "order-refund-status"
-	)
-	public void handleRefundCompleted(RefundCompletedEvent event){
-		log.info("Received Payment Refund Completed event for Order: {}", event.getOrderId());
-		orderService.handleRefundCompletion(event.getOrderId());
-	}
 	
 	// listener for when the shipment is picked up/dispatched
 	@KafkaListener(
