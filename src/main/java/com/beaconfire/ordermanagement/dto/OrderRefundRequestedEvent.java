@@ -1,5 +1,6 @@
 package com.beaconfire.ordermanagement.dto;
 
+import com.beaconfire.ordermanagement.entity.RefundType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,5 +22,6 @@ public class OrderRefundRequestedEvent {
 	private BigDecimal refundAmount;
 	private String userId;
 	private String refundReasonCode;
+	private RefundType refundType;
 	private boolean isPartialRefund;
 }

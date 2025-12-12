@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentProducer {
 	private final KafkaTemplate<String, Object> kafkaTemplate;
-	public static final String CHARGE_TOPIC = "payment.order-request-charge";
+	private static final String CHARGE_TOPIC = "payment.order-request-charge";
 	public static final String CANCELLED_TOPIC = "payment.order-cancelled-refund";
 	public static final String RETURNED_TOPIC = "payment.order-returned-refund";
 	
@@ -21,8 +21,8 @@ public class PaymentProducer {
 		this.kafkaTemplate = kafkaTemplate;
 	}
 	
-	public void sendPaymentRequestEvent(String topic, OrderChargeRequestEvent requestEvent){
-		kafkaTemplate.send(topic, requestEvent.getOrderId(), requestEvent);
+	public void sendPaymentRequestEvent(OrderChargeRequestEvent requestEvent){
+		kafkaTemplate.send(CHARGE_TOPIC, requestEvent.getOrderId(), requestEvent);
 	}
 	
 	public void sendPaymentRefundEvent(String topic, OrderRefundRequestedEvent refundEvent){

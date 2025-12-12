@@ -96,7 +96,7 @@ public class OrderService {
 				savedOrder.getTotalAmount(),
 				orderRequestDto.getPaymentMethodToken()
 		);
-		paymentProducer.sendPaymentRequestEvent(paymentProducer.CHARGE_TOPIC, paymentRequestEvent);
+		paymentProducer.sendPaymentRequestEvent(paymentRequestEvent);
 		
 		// 5. send an event to productService to reduce the inventory
 		// 5.1 map the persisted OrderItems into the event DTO format
@@ -349,9 +349,9 @@ public class OrderService {
 		
 		// 2 publish the refund event
 		if (topic.equals("return")){
-			paymentProducer.sendPaymentRefundEvent(paymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
+			paymentProducer.sendPaymentRefundEvent(PaymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
 		} else {
-			paymentProducer.sendPaymentRefundEvent(paymentProducer.CANCELLED_TOPIC, orderRefundRequestedEvent);
+			paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_TOPIC, orderRefundRequestedEvent);
 		}
 		
 	}
