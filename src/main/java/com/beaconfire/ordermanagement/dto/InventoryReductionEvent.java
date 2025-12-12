@@ -20,5 +20,5 @@ public class InventoryReductionEvent {
 	// for Kafka event
 	private String orderId;
 	private List<ItemToReduce> itemsToReduce;
-	private LocalDateTime reduceTime;
+	private LocalDateTime reducedTime;
 }

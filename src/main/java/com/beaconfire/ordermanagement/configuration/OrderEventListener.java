@@ -28,7 +28,7 @@ public class OrderEventListener {
 			topics = "${app.kafka.topics.shipment-shipped}",
 			groupId = "order-shipment-status"
 	)
-	public void handleShipmentStarted(ShipmentStartedEvent event){
+	public void handleShipmentStarted(OrderShippedEvent event){
 		log.info("Received Shipment Started event for Order: {}", event.getOrderId());
 		
 		// update the OrderStatus to shipped
@@ -42,7 +42,7 @@ public class OrderEventListener {
 			topics = "${app.kafka.topics.shipment-delivered}",
 			groupId = "order-shipment-status"
 	)
-	public void handleShipmentDelivered(ShipmentDeliveredEvent event){
+	public void handleShipmentDelivered(OrderDeliveredEvent event){
 		log.info("Received Shipment Delivered event for Order: {}", event.getOrderId());
 		
 		// update the OrderStatus to shipped

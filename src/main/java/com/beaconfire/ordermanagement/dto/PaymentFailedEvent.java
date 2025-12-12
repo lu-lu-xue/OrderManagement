@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
  * @author luluxue
  * @date 2025-12-09
@@ -15,4 +17,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PaymentFailedEvent {
 	private String orderId;
+	private String paymentTransactionId;
+	private String failureReason;   // add to Order entity?
+	private LocalDateTime failedAt;
 }

@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
  * @author luluxue
  * @date 2025-12-09
@@ -13,6 +15,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ShipmentStartedEvent {
+public class OrderDeliveredEvent {
 	private String orderId;
+	private LocalDateTime deliveredAt;
+	private String recipientName;
 }

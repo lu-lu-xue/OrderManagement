@@ -1,6 +1,5 @@
 package com.beaconfire.ordermanagement.service;
 
-import com.beaconfire.ordermanagement.client.payment.PaymentServiceClient;
 import com.beaconfire.ordermanagement.client.product.ProductServiceClient;
 import com.beaconfire.ordermanagement.configuration.InventoryProducer;
 import com.beaconfire.ordermanagement.configuration.NotificationProducer;
@@ -12,9 +11,7 @@ import com.beaconfire.ordermanagement.entity.OrderStatus;
 import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
-import feign.FeignException;
 import jakarta.transaction.Transactional;
-import org.apache.kafka.common.errors.InvalidRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

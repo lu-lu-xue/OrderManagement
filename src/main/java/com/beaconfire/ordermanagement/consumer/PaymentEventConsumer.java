@@ -16,14 +16,13 @@ import org.springframework.stereotype.Component;
  * @date 2025-12-10
  */
 @Component
-@Slf4j
 public class PaymentEventConsumer {
-	private final OrderEventHandler orderEventHandler;
+	private final OrderEventHandler eventHandler;
 	private final EventProcessorUtil eventUtil;
 	
-	public PaymentEventConsumer(OrderEventHandler orderEventHandler,
+	public PaymentEventConsumer(OrderEventHandler eventHandler,
 	                            EventProcessorUtil eventUtil){
-		this.orderEventHandler = orderEventHandler;
+		this.eventHandler = eventHandler;
 		this.eventUtil = eventUtil;
 	}
 	
@@ -32,7 +31,7 @@ public class PaymentEventConsumer {
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
 		eventUtil.processEvent("payment-confirmed",
 				event.getOrderId(),
-				() -> orderEventHandler.handlePaymentConfirmed(event));
+				() -> eventHandler.handlePaymentConfirmed(event));
 	}
 	
 	@KafkaListener(
@@ -40,8 +39,9 @@ public class PaymentEventConsumer {
 			groupId = "order-payment-status"
 	)
 	public void handlePaymentFailed(PaymentFailedEvent event){
-		log.info("Received Payment Failed event for Order: {}", event.getOrderId());
-		orderEventHandler.updateOrderStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
+		eventUtil.processEvent("payment-failed",
+				event.getOrderId(),
+				() -> eventHandler.handlePaymentFailed(event));
 	}
 	
 	@KafkaListener(
@@ -49,7 +49,8 @@ public class PaymentEventConsumer {
 			groupId = "order-refund-status"
 	)
 	public void handleRefundCompleted(RefundCompletedEvent event){
-		log.info("Received Payment Refund Completed event for Order: {}", event.getOrderId());
-		orderEventHandler.handleRefundCompletion(event.getOrderId());
+		eventUtil.processEvent("refund-completed",
+				event.getOrderId(),
+				() -> eventHandler.handleRefundCompletion(event));
 	}
 }

@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 /**
  * @author luluxue
  * @date 2025-12-09
@@ -15,4 +18,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PaymentConfirmedEvent {
 	private String orderId;
+	private String paymentTransactionId;
+	private BigDecimal amount;
+	private LocalDateTime confirmedAt;
 }

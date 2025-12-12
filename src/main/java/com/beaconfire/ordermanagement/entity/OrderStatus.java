@@ -15,7 +15,7 @@ public enum OrderStatus {
 	SHIPPED,
 	DELIVERED,
 	CANCELLED,
-	RETURNED,               // return entire order
+	RETURNED,            // return entire order
 	PARTIALLY_RETURNED,     //partial return
 	PROCESSING
 }
