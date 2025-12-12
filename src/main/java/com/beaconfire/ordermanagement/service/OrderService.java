@@ -5,10 +5,7 @@ import com.beaconfire.ordermanagement.configuration.InventoryProducer;
 import com.beaconfire.ordermanagement.configuration.NotificationProducer;
 import com.beaconfire.ordermanagement.configuration.PaymentProducer;
 import com.beaconfire.ordermanagement.dto.*;
-import com.beaconfire.ordermanagement.entity.Order;
-import com.beaconfire.ordermanagement.entity.OrderItem;
-import com.beaconfire.ordermanagement.entity.OrderStatus;
-import com.beaconfire.ordermanagement.entity.ReturnedItem;
+import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import jakarta.transaction.Transactional;
@@ -338,12 +335,19 @@ public class OrderService {
 	
 	private void publishRefundEvent(String topic, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
+		RefundType refundType;
+		if (topic.equals("cancel")){
+			refundType = RefundType.CANCELLATION;
+		} else {
+			refundType = RefundType.RETURN;
+		}
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
 				order.getPaymentTransactionId(),
 				refundAmount,
 				order.getUserId(),
 				reasonCode,
+				refundType,
 				isFullRefund       // it's a full order cancellation
 		);
 		

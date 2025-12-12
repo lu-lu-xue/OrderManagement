@@ -1,5 +1,6 @@
 package com.beaconfire.ordermanagement.dto;
 
+import com.beaconfire.ordermanagement.entity.RefundType;
 import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +24,7 @@ public class RefundCompletedEvent {
 	private String refundTransactionId;
 	private BigDecimal refundAmount;
 	private LocalDateTime refundedAt;
+	private RefundType refundType;
 	private List<String> returnedItemIds;
 }
 
