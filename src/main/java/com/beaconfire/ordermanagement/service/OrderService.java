@@ -9,6 +9,7 @@ import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
  */
 
 @Service
+@Slf4j
 public class OrderService {
 	private final OrderRepository orderRepo;
 	private final ProductServiceClient productServiceClient;
@@ -174,7 +176,7 @@ public class OrderService {
 		// 6. publish an event to paymentService
 		// 6.1 get the full cancellation
 		BigDecimal fullRefundAmount = savedOrder.getTotalAmount();
-		publishRefundEvent("cancel", savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
+		publishRefundEvent(RefundType.CANCELLATION, savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
 		
 		// 7. publish an event to notificationService
 		OrderCancelledNotificationEvent notificationEvent = new OrderCancelledNotificationEvent(
@@ -230,7 +232,7 @@ public class OrderService {
 		// strategies like, coupon, promotion, discount
 		// .......
 		BigDecimal refundTotal = isFullReturn ? order.getTotalAmount() : calculateRefundAmount(order, requestDto.getItemsToReturn());
-		publishRefundEvent("return", savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
+		publishRefundEvent(RefundType.RETURN, savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
 		
 		// 7. publish an event to notificationService
 		publishReturnNotificationEvent(savedOrder, refundTotal, requestDto, isFullReturn);
@@ -333,14 +335,8 @@ public class OrderService {
 		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
 	}
 	
-	private void publishRefundEvent(String topic, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
+	private void publishRefundEvent(RefundType refundType, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
-		RefundType refundType;
-		if (topic.equals("cancel")){
-			refundType = RefundType.CANCELLATION;
-		} else {
-			refundType = RefundType.RETURN;
-		}
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
 				order.getPaymentTransactionId(),
@@ -351,13 +347,15 @@ public class OrderService {
 				isFullRefund       // it's a full order cancellation
 		);
 		
-		// 2 publish the refund event
-		if (topic.equals("return")){
-			paymentProducer.sendPaymentRefundEvent(PaymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
-		} else {
-			paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_TOPIC, orderRefundRequestedEvent);
+		// 2 publish the refund event based on refundType
+		switch(refundType){
+			case CANCELLATION:
+				paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_TOPIC, orderRefundRequestedEvent);
+			case RETURN:
+				paymentProducer.sendPaymentRefundEvent(PaymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
+			default:
+				log.error("Unknown refund type: {}", refundType);
 		}
-		
 	}
 	
 	private void publishReturnNotificationEvent(Order order, BigDecimal refundTotal, ReturnOrderRequestDTO requestDto, boolean isFullReturn){

@@ -7,10 +7,12 @@ import com.beaconfire.ordermanagement.entity.OrderStatus;
 import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import com.beaconfire.ordermanagement.exception.OrderNotFoundException;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
+import com.beaconfire.ordermanagement.repository.ReturnedItemRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,11 +26,14 @@ import java.util.List;
 public class OrderEventHandler {
 	private final OrderRepository orderRepo;
 	private final InventoryProducer inventoryProducer;
+	private final ReturnedItemRepository returnedItemRepo;
 	
 	public OrderEventHandler(OrderRepository orderRepo,
-	                         InventoryProducer inventoryProducer){
+	                         InventoryProducer inventoryProducer,
+	                         ReturnedItemRepository returnedRepo){
 		this.orderRepo = orderRepo;
 		this.inventoryProducer = inventoryProducer;
+		this.returnedItemRepo = returnedRepo;
 	}
 	
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
@@ -59,7 +64,7 @@ public class OrderEventHandler {
 		// 4. now update the order status and payment
 		order.setStatus(OrderStatus.PAYMENT_CONFIRMED);
 		order.setPaymentTransactionId(event.getPaymentTransactionId());
-		// may need to come back to update the paymentConfirmedAt -- add field in Order?? no
+		order.setPaymentConfirmedAt(event.getConfirmedAt());
 		
 		Order savedOrder = orderRepo.save(order);
 		log.info("Order {} status updated to PAYMENT_CONFIRMED", event.getOrderId());
@@ -101,7 +106,7 @@ public class OrderEventHandler {
 		log.warn("Order {} payment failed: {}", event.getOrderId());
 	}
 	
-	public void handleRefundCompletion(RefundCompletedEvent event){
+	public void handleRefundCompletion(RefundCompletedEvent event) {
 		log.info("Received Payment Refund Completed event for Order: {}", event.getOrderId());
 		
 		// 1. fetch order
@@ -110,27 +115,97 @@ public class OrderEventHandler {
 						"Order not found with ID: " + event.getOrderId()
 				));
 		
-		// 2. idempotency check
-		if (order.getStatus() == OrderStatus.CANCELLED ||
-				order.getStatus() == OrderStatus.RETURNED){
-			log.warn("Order {} already in final status {}, skipping refund completion", event.getOrderId(), order.getStatus());
+		// 2. check refund type
+		switch (event.getRefundType()) {
+			case CANCELLATION:
+				handleCancellationRefund(order, event);
+				break;
+			case RETURN:
+				handleReturnRefund(order, event);
+				break;
+			default:
+				log.error("Unknown refund type: {}", event.getRefundType());
+		}
+	}
+	
+	
+	private void handleCancellationRefund(Order order, RefundCompletedEvent event) {
+		// 1. idempotency check
+		if (order.getStatus() == OrderStatus.CANCELLED) {
+			log.warn("Order {} already cancelled", event.getOrderId());
 			return;
 		}
 		
-		// 3. update financial audit trail
-		List<String> returnedItemIds = event.getReturnedItemIds();
+		// 2. update order status
+		order.setStatus(OrderStatus.CANCELLED);
+		order.setRefundTransactionId(event.getRefundTransactionId());
+		order.setRefundedAt(event.getRefundedAt());
 		
-		if (returnedItemIds.isEmpty()){
-			log.warn("No pending refund items for order {}", event.getOrderId());
+		orderRepo.save(order);
+		log.info("Order {} cancelled, refund completed", event.getOrderId());
+	}
+	
+	private void handleReturnRefund(Order order, RefundCompletedEvent event) {
+		// check returnedItem list directly
+		// 1. check returnedItems
+		if (event.getReturnedItemIds() == null ||
+				event.getReturnedItemIds().isEmpty()) {
+			log.warn("No returned item IDs in refund event for order {}", event.getOrderId());
+		}
+		
+		// 2. fetch all returned items
+		List<ReturnedItem> returnedItems = returnedItemRepo.findByIdIn(event.getReturnedItemIds());
+		
+		if (returnedItems.isEmpty()) {
+			log.error("No returned items found for IDs: {}", event.getReturnedItemIds());
 			return;
 		}
 		
-		// 4. now update the order status and payment
-		order.setStatus(OrderStatus.PAYMENT_CONFIRMED);
-		order.setPaymentTransactionId(event.getPaymentTransactionId());
-		// may need to come back to update the paymentConfirmedAt -- add field in Order?? no
+		// 3. update each returned item
+		for (ReturnedItem item : returnedItems) {
+			// idempotency
+			if (item.getRefundTransactionId() != null) {
+				log.info("ReturnedItem {} already has refund transaction ID", item.getId());
+				continue;
+			}
+			
+			item.setRefundTransactionId(event.getRefundTransactionId());
+			item.setRefundedAt(LocalDateTime.now());
+		}
 		
-		Order savedOrder = orderRepo.save(order);
-		log.info("Order {} status updated to PAYMENT_CONFIRMED", event.getOrderId());
+		returnedItemRepo.saveAll(returnedItems);
+		
+		// 4. check if it's a full return
+		boolean isFullReturn = checkIfFullReturn(order);
+		
+		// 5. update order status
+		if (isFullReturn) {
+			if (order.getStatus() != OrderStatus.RETURNED) {
+				order.setStatus(OrderStatus.RETURNED);
+				log.info("Order {} fully returned", event.getOrderId());
+			}
+		} else {
+			if (order.getStatus() != OrderStatus.PARTIALLY_RETURNED) {
+				order.setStatus(OrderStatus.PARTIALLY_RETURNED);
+				log.info("Order {} partially returned", event.getOrderId());
+			}
+		}
+		
+		// 6. update refund total
+		BigDecimal refundAmount = order.getRefundAmount();
+		order.setRefundAmount(refundAmount.add(event.getRefundAmount()));
+		
+		orderRepo.save(order);
+		log.info("Order {} return refund completed, amount: {}",
+				event.getOrderId(), event.getRefundAmount());
+	}
+	
+	/*
+	* using stream API, allMatch
+	* check each item's remaining quantity
+	* */
+	private boolean checkIfFullReturn(Order order){
+		return order.getItems().stream()
+				.allMatch(item -> item.getRemainingQuantity() == 0);
 	}
 }

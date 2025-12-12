@@ -48,8 +48,21 @@ public class Order {
 	private String idempotencyKey;
 	
 	// for cancel or return an order (refund)
-	@Column(nullable = true)
+	@Column(name = "payment_transaction_id", nullable = true)
 	private String paymentTransactionId;
+	
+	@Column(name = "payment_confirmed_At")
+	private LocalDateTime paymentConfirmedAt;
+	
+	@Column(name = "refund_transaction_id")
+	private String refundTransactionId;
+	
+	@Column(name = "refund_amount")
+	private BigDecimal refundAmount;
+	
+	@Column(name = "refunded_at")
+	private LocalDateTime refundedAt;
+	
 	
 	@Column(nullable = true)
 	private boolean isFullReturn = false;
