@@ -118,9 +118,9 @@ public class OrderEventHandler {
 		}
 		
 		// 3. update financial audit trail
-		List<ReturnedItemId> returnedItems = event.getReturnedItemIds();
+		List<String> returnedItemIds = event.getReturnedItemIds();
 		
-		if (returnedItems.isEmpty()){
+		if (returnedItemIds.isEmpty()){
 			log.warn("No pending refund items for order {}", event.getOrderId());
 			return;
 		}
