@@ -160,6 +160,7 @@ public class OrderEventHandler {
 		if (event.getReturnedItemIds() == null ||
 				event.getReturnedItemIds().isEmpty()) {
 			log.warn("No returned item IDs in refund event for order {}", event.getOrderId());
+			return;
 		}
 		
 		// 2. fetch all returned items
@@ -201,8 +202,10 @@ public class OrderEventHandler {
 		}
 		
 		// 6. update refund amount for this order
-		BigDecimal refundAmount = order.getRefundAmount();
-		order.setRefundAmount(refundAmount.add(event.getRefundAmount()));
+		BigDecimal currentRefund = order.getRefundAmount() != null
+				? order.getRefundAmount()
+				: BigDecimal.ZERO;
+		order.setRefundAmount(currentRefund.add(event.getRefundAmount()));
 		
 		orderRepo.save(order);
 		log.info("Order {} return refund completed, amount: {}",
@@ -291,7 +294,7 @@ public class OrderEventHandler {
 	
 	// ==== shipment consumer
 	public void handleOrderShipped(OrderShippedEvent event){
-		log.error("Handling order shipment for order {}", event.getOrderId());
+		log.info("Handling order shipment for order {}", event.getOrderId());
 		
 		// 1. fetch the order
 		Order order = orderRepo.findById(event.getOrderId())
@@ -301,6 +304,7 @@ public class OrderEventHandler {
 		
 		if (order.getStatus() == OrderStatus.SHIPPED){
 			log.warn("Order {} has been shipped, skipping", event.getOrderId());
+			return;
 		}
 		
 		// update order status
@@ -317,7 +321,7 @@ public class OrderEventHandler {
 	}
 	
 	public void handleOrderDelivered(OrderDeliveredEvent event){
-		log.error("Handling order delivery for order {}", event.getOrderId());
+		log.info("Handling order delivery for order {}", event.getOrderId());
 		
 		// 1. fetch the order
 		Order order = orderRepo.findById(event.getOrderId())
@@ -327,6 +331,7 @@ public class OrderEventHandler {
 		
 		if (order.getStatus() == OrderStatus.DELIVERED){
 			log.warn("Order {} has been delivered, skipping", event.getOrderId());
+			return;
 		}
 		
 		// update order status
