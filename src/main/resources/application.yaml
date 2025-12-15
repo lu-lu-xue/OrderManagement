@@ -60,8 +60,7 @@ spring:
 app:
   kafka:
     topics:
-      # these are the producer topics(OrderService
-      # is the sender)
+      # === producer topics(OrderService is the sender)===
       inventory-reduction: inventory.order-placed
       inventory-restock: inventory.restock-requests
 

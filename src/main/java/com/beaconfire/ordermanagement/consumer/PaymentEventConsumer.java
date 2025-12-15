@@ -4,10 +4,7 @@ import com.beaconfire.ordermanagement.consumer.util.EventProcessorUtil;
 import com.beaconfire.ordermanagement.dto.PaymentConfirmedEvent;
 import com.beaconfire.ordermanagement.dto.PaymentFailedEvent;
 import com.beaconfire.ordermanagement.dto.RefundCompletedEvent;
-import com.beaconfire.ordermanagement.entity.OrderStatus;
 import com.beaconfire.ordermanagement.service.OrderEventHandler;
-import com.beaconfire.ordermanagement.service.OrderService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 

@@ -191,7 +191,7 @@ public class OrderEventHandler {
 			}
 		}
 		
-		// 6. update refund total
+		// 6. update refund amount for this order
 		BigDecimal refundAmount = order.getRefundAmount();
 		order.setRefundAmount(refundAmount.add(event.getRefundAmount()));
 		
@@ -207,5 +207,17 @@ public class OrderEventHandler {
 	private boolean checkIfFullReturn(Order order){
 		return order.getItems().stream()
 				.allMatch(item -> item.getRemainingQuantity() == 0);
+	}
+	
+	/*
+	* handle InventoryReserved InventoryReservedFailed events
+	* */
+	
+	public void handleInventoryReserved(InventoryReservedEvent event){
+	
+	}
+	
+	public void handleInventoryReservationFailed(InventoryReservationFailedEvent event){
+	
 	}
 }
