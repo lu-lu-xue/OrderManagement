@@ -1,9 +1,6 @@
 package com.beaconfire.ordermanagement.configuration;
 
-import com.beaconfire.ordermanagement.dto.OrderCancelledNotificationEvent;
-import com.beaconfire.ordermanagement.dto.OrderConfirmedNotificationEvent;
-import com.beaconfire.ordermanagement.dto.OrderPlacedNotificationEvent;
-import com.beaconfire.ordermanagement.dto.OrderReturnedNotificationEvent;
+import com.beaconfire.ordermanagement.dto.*;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +14,8 @@ public class NotificationProducer {
 	private static final String CONFIRMED_TOPIC = "notification.order-confirmed";
 	private static final String CANCELLED_TOPIC = "notification.order-cancelled";
 	private static final String RETURNED_TOPIC = "notification.order-returned";
+	private static final String SHIPPED_TOPIC = "notification.order-shipped";
+	private static final String DELIVERED_TOPIC = "notification.order-delivered";
 	private final KafkaTemplate<String, Object> kafkaTemplate;
 	
 	public NotificationProducer(KafkaTemplate<String, Object> kafkaTemplate){
@@ -37,5 +36,13 @@ public class NotificationProducer {
 	
 	public void sendOrderReturnedNotificationEvent(OrderReturnedNotificationEvent event){
 		kafkaTemplate.send(RETURNED_TOPIC, event.getUserId(), event);
+	}
+	
+	public void sendOrderShippedNotificationEvent(OrderShippedNotificationEvent event){
+		kafkaTemplate.send(SHIPPED_TOPIC, event.getUserId(), event);
+	}
+	
+	public void sendOrderDeliveredNotificationEvent(OrderDeliveredNotificationEvent event){
+		kafkaTemplate.send(DELIVERED_TOPIC, event.getUserId(), event);
 	}
 }

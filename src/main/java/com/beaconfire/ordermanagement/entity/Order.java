@@ -59,20 +59,15 @@ public class Order {
 	
 	@Column(name = "refund_transaction_id")
 	private String refundTransactionId;
-	
+
 	@Column(name = "refund_amount")
 	private BigDecimal refundAmount;
-	
+
 	@Column(name = "refunded_at")
 	private LocalDateTime refundedAt;
 	
-	
 	@Column(nullable = true)
 	private boolean isFullReturn = false;
-	
-//	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-//	private List<ReturnedItem> returnedItems = new ArrayList<>();
-	
 	
 	// get all returnedItems
 	public List<ReturnedItem> getAllReturnedItems(){

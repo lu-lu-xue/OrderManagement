@@ -288,4 +288,57 @@ public class OrderEventHandler {
 		);
 		paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_INVENTORY_FAILED_TOPIC, refundEvent);
 	}
+	
+	// ==== shipment consumer
+	public void handleOrderShipped(OrderShippedEvent event){
+		log.error("Handling order shipment for order {}", event.getOrderId());
+		
+		// 1. fetch the order
+		Order order = orderRepo.findById(event.getOrderId())
+				.orElseThrow(() -> new OrderNotFoundException(
+						"Order not found with ID: " + event.getOrderId()
+				));
+		
+		if (order.getStatus() == OrderStatus.SHIPPED){
+			log.warn("Order {} has been shipped, skipping", event.getOrderId());
+		}
+		
+		// update order status
+		order.setStatus(OrderStatus.SHIPPED);
+		orderRepo.save(order);
+		
+		// publish event to notificationService
+		OrderShippedNotificationEvent notificationEvent = new OrderShippedNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				event.getShippedAt()
+		);
+		notificationProducer.sendOrderShippedNotificationEvent(notificationEvent);
+	}
+	
+	public void handleOrderDelivered(OrderDeliveredEvent event){
+		log.error("Handling order delivery for order {}", event.getOrderId());
+		
+		// 1. fetch the order
+		Order order = orderRepo.findById(event.getOrderId())
+				.orElseThrow(() -> new OrderNotFoundException(
+						"Order not found with ID: " + event.getOrderId()
+				));
+		
+		if (order.getStatus() == OrderStatus.DELIVERED){
+			log.warn("Order {} has been delivered, skipping", event.getOrderId());
+		}
+		
+		// update order status
+		order.setStatus(OrderStatus.DELIVERED);
+		orderRepo.save(order);
+		
+		// publish event to notificationService
+		OrderDeliveredNotificationEvent notificationEvent = new OrderDeliveredNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				event.getDeliveredAt()
+		);
+		notificationProducer.sendOrderDeliveredNotificationEvent(notificationEvent);
+	}
 }

@@ -237,6 +237,8 @@ public class OrderService {
 		// 7. publish an event to notificationService
 		publishReturnNotificationEvent(savedOrder, refundTotal, requestDto, isFullReturn);
 		
+		// 8. publish an event to shipmentService,
+		// requesting a tracking number for customer to return??
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
 	
