@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 public class PaymentProducer {
 	private final KafkaTemplate<String, Object> kafkaTemplate;
 	private static final String CHARGE_TOPIC = "payment.order-request-charge";
-	public static final String CANCELLED_TOPIC = "payment.order-cancelled-refund";
+	public static final String CANCELLED_INVENTORY_FAILED_TOPIC = "payment.order-cancelled-refund";
 	public static final String RETURNED_TOPIC = "payment.order-returned-refund";
 	
 	public PaymentProducer(KafkaTemplate<String, Object> kafkaTemplate){

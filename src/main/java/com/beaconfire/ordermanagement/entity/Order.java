@@ -51,8 +51,11 @@ public class Order {
 	@Column(name = "payment_transaction_id", nullable = true)
 	private String paymentTransactionId;
 	
-	@Column(name = "payment_confirmed_At")
+	@Column(name = "payment_confirmed_at")
 	private LocalDateTime paymentConfirmedAt;
+	
+	@Column(name = "order_confirmed_at")
+	private LocalDateTime orderConfirmedAt;
 	
 	@Column(name = "refund_transaction_id")
 	private String refundTransactionId;

@@ -350,7 +350,7 @@ public class OrderService {
 		// 2 publish the refund event based on refundType
 		switch(refundType){
 			case CANCELLATION:
-				paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_TOPIC, orderRefundRequestedEvent);
+				paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_INVENTORY_FAILED_TOPIC, orderRefundRequestedEvent);
 			case RETURN:
 				paymentProducer.sendPaymentRefundEvent(PaymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
 			default:

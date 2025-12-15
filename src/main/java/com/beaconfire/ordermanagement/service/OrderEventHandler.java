@@ -1,9 +1,12 @@
 package com.beaconfire.ordermanagement.service;
 
 import com.beaconfire.ordermanagement.configuration.InventoryProducer;
+import com.beaconfire.ordermanagement.configuration.NotificationProducer;
+import com.beaconfire.ordermanagement.configuration.PaymentProducer;
 import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.Order;
 import com.beaconfire.ordermanagement.entity.OrderStatus;
+import com.beaconfire.ordermanagement.entity.RefundType;
 import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import com.beaconfire.ordermanagement.exception.OrderNotFoundException;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
@@ -27,13 +30,19 @@ public class OrderEventHandler {
 	private final OrderRepository orderRepo;
 	private final InventoryProducer inventoryProducer;
 	private final ReturnedItemRepository returnedItemRepo;
+	private final NotificationProducer notificationProducer;
+	private final PaymentProducer paymentProducer;
 	
 	public OrderEventHandler(OrderRepository orderRepo,
 	                         InventoryProducer inventoryProducer,
-	                         ReturnedItemRepository returnedRepo){
+	                         ReturnedItemRepository returnedRepo,
+	                         NotificationProducer notificationProducer,
+	                         PaymentProducer paymentProducer){
 		this.orderRepo = orderRepo;
 		this.inventoryProducer = inventoryProducer;
 		this.returnedItemRepo = returnedRepo;
+		this.notificationProducer = notificationProducer;
+		this.paymentProducer = paymentProducer;
 	}
 	
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
@@ -237,18 +246,46 @@ public class OrderEventHandler {
 		
 		// 4. if payment is successful, confirm the order
 		order.setStatus(OrderStatus.CONFIRMED);
-		order.setPaymentConfirmedAt(LocalDateTime.now());
+		order.setOrderConfirmedAt(LocalDateTime.now());
 		
 		orderRepo.save(order);
 		log.info("Order {} fully confirmed (payment + inventory)", event.getOrderId());
 		
 		// 5. send notification to user
-		
+		OrderConfirmedNotificationEvent confirmEvent = new OrderConfirmedNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				order.getTotalAmount(),
+				order.getOrderConfirmedAt()
+		);
+		notificationProducer.sendOrderConfirmedNotification(confirmEvent);
 		
 		// 6. publish event to shipmentService to start the shipment
 	}
 	
 	public void handleInventoryReservationFailed(InventoryReservationFailedEvent event){
-	
+		log.error("Inventory reduction failed for order: {}", event.getOrderId());
+		
+		// 1. fetch order
+		Order order = orderRepo.findById(event.getOrderId())
+				.orElseThrow(() -> new OrderNotFoundException(
+						"Order not found with ID: " + event.getOrderId()
+				));
+		
+		// 2. update the status
+		order.setStatus(OrderStatus.INVENTORY_FAILED);
+		orderRepo.save(order);
+		
+		// 3. trigger paymentRefund
+		OrderRefundRequestedEvent refundEvent = new OrderRefundRequestedEvent(
+				order.getId(),
+				order.getPaymentTransactionId(),
+				order.getTotalAmount(),
+				order.getUserId(),
+				"Inventory_unavailable",
+				RefundType.INVENTORY_FAILED,
+				true
+		);
+		paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_INVENTORY_FAILED_TOPIC, refundEvent);
 	}
 }
