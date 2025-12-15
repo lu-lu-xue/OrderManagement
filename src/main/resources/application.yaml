@@ -65,6 +65,7 @@ app:
       inventory-restock: inventory.restock-requests
 
       notification-create: notification.order-placed
+      notification-confirm: notification.order-confirmed
       notification-cancel: notification.order-cancelled
       notification-return: notification.order-returned
 

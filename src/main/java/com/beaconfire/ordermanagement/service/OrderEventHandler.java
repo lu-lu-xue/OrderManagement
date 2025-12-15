@@ -214,7 +214,38 @@ public class OrderEventHandler {
 	* */
 	
 	public void handleInventoryReserved(InventoryReservedEvent event){
-	
+		log.info("Handling inventory reserved for order: {}", event.getOrderId());
+		
+		// 1. fetch order
+		Order order = orderRepo.findById(event.getOrderId())
+				.orElseThrow(() -> new OrderNotFoundException(
+						"Order not found with ID: " + event.getOrderId()
+				));
+		
+		// 2. idempotency
+		if (order.getStatus() == OrderStatus.CONFIRMED){
+			log.warn("Order {} already confirmed, skipping", event.getOrderId());
+			return;
+		}
+		
+		// 3. check current status
+		if (order.getStatus() != OrderStatus.PAYMENT_CONFIRMED){
+			throw new IllegalStateException(
+					"Cannot confirm order in status: " + order.getStatus()
+			);
+		}
+		
+		// 4. if payment is successful, confirm the order
+		order.setStatus(OrderStatus.CONFIRMED);
+		order.setPaymentConfirmedAt(LocalDateTime.now());
+		
+		orderRepo.save(order);
+		log.info("Order {} fully confirmed (payment + inventory)", event.getOrderId());
+		
+		// 5. send notification to user
+		
+		
+		// 6. publish event to shipmentService to start the shipment
 	}
 	
 	public void handleInventoryReservationFailed(InventoryReservationFailedEvent event){

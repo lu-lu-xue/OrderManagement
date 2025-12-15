@@ -1,6 +1,7 @@
 package com.beaconfire.ordermanagement.configuration;
 
 import com.beaconfire.ordermanagement.dto.OrderCancelledNotificationEvent;
+import com.beaconfire.ordermanagement.dto.OrderConfirmedNotificationEvent;
 import com.beaconfire.ordermanagement.dto.OrderPlacedNotificationEvent;
 import com.beaconfire.ordermanagement.dto.OrderReturnedNotificationEvent;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -12,7 +13,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class NotificationProducer {
-	private static final String CREATE_TOPIC = "notification.order-placed";
+	private static final String CREATED_TOPIC = "notification.order-placed";
+	private static final String CONFIRMED_TOPIC = "notification.order-confirmed";
 	private static final String CANCELLED_TOPIC = "notification.order-cancelled";
 	private static final String RETURNED_TOPIC = "notification.order-returned";
 	private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -22,7 +24,11 @@ public class NotificationProducer {
 	}
 	
 	public void sendOrderPlacedNotificationEvent(OrderPlacedNotificationEvent event){
-		kafkaTemplate.send(CREATE_TOPIC, event.getUserId(), event);
+		kafkaTemplate.send(CREATED_TOPIC, event.getUserId(), event);
+	}
+	
+	public void sendOrderConfirmedNotification(OrderConfirmedNotificationEvent event){
+		kafkaTemplate.send(CONFIRMED_TOPIC, event.getUserId(),event);
 	}
 	
 	public void sendOrderCancelledNotificationEvent(OrderCancelledNotificationEvent event){
