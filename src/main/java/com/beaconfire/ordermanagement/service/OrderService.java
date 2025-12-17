@@ -444,13 +444,4 @@ public class OrderService {
 		
 		return totalRefund;
 	}
-	
-	// updateOrderStatus
-	public void updateOrderStatus(String orderId, OrderStatus orderStatus){
-		// 1. fetch the order
-		Order order = orderRepo.findById(orderId)
-				.orElseThrow(() -> new OrderNotFoundException("Order not found with ID: " + orderId));
-		
-		order.setStatus(orderStatus);
-	}
 }
