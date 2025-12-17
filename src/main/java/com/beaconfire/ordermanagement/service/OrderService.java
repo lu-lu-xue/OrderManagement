@@ -8,6 +8,7 @@ import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
+import com.beaconfire.ordermanagement.service.publisher.InventoryEventPublisher;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,18 +35,21 @@ public class OrderService {
 	private final NotificationProducer notificationEventProducer;
 	private final InventoryProducer inventoryProducer;
 	private final PaymentProducer paymentProducer;
+	private final InventoryEventPublisher inventoryEventPublisher;
 	
 	
 	public OrderService(OrderRepository orderRepo,
 	                    ProductServiceClient productServiceClient,
 	                    NotificationProducer notificationEventProducer,
 	                    InventoryProducer inventoryProducer,
-	                    PaymentProducer paymentProducer){
+	                    PaymentProducer paymentProducer,
+	                    InventoryEventPublisher inventoryEventPublisher){
 		this.orderRepo = orderRepo;
 		this.productServiceClient = productServiceClient;
 		this.notificationEventProducer = notificationEventProducer;
 		this.inventoryProducer = inventoryProducer;
 		this.paymentProducer = paymentProducer;
+		this.inventoryEventPublisher = inventoryEventPublisher;
 	}
 	
 	// 1. place an order
@@ -99,17 +103,18 @@ public class OrderService {
 		
 		// 5. send an event to productService to reduce the inventory
 		// 5.1 map the persisted OrderItems into the event DTO format
-		List<ItemToReduce> itemsToReduce = savedOrder.getItems().stream()
-				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
-				.toList();
-		
-		InventoryReductionEvent inventoryEvent = new InventoryReductionEvent(
-				savedOrder.getId(),
-				itemsToReduce,
-				LocalDateTime.now()
-		);
-		// 5.2 publish the inventoryEvent
-		inventoryProducer.sendInventoryReductionEvent(inventoryEvent);
+//		List<ItemToReduce> itemsToReduce = savedOrder.getItems().stream()
+//				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
+//				.toList();
+//
+//		InventoryReductionEvent inventoryEvent = new InventoryReductionEvent(
+//				savedOrder.getId(),
+//				itemsToReduce,
+//				LocalDateTime.now()
+//		);
+//		// 5.2 publish the inventoryEvent
+//		inventoryProducer.sendInventoryReductionEvent(inventoryEvent);
+		inventoryEventPublisher.publishInventoryReductionEvent(savedOrder);
 		
 		// 6. send an event to NotificationService for orderPlaced email
 		// 6.1 build the event
@@ -171,7 +176,7 @@ public class OrderService {
 		
 		// 5. publish an event using Kafka (KafkaTemplate) to
 		// update the product's inventory
-		publishInventoryRestockEvent(savedOrder);
+		inventoryEventPublisher.publishInventoryRestockEvent(savedOrder);
 		
 		// 6. publish an event to paymentService
 		// 6.1 get the full cancellation
@@ -223,7 +228,7 @@ public class OrderService {
 		
 		// 5. publish an event to
 		// update the inventory through ProductService
-		publishInventoryRestockEvent(savedOrder);
+		inventoryEventPublisher.publishInventoryRestockEvent(savedOrder);
 		
 		// 6. publish an event to paymentService
 
@@ -322,20 +327,20 @@ public class OrderService {
 		}
 	}
 	
-	private void publishInventoryRestockEvent(Order order){
-		// 1 build the inventoryRestockEvent
-		List<ItemToReduce> itemsToRestock = order.getItems().stream()
-				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
-				.toList();
-		
-		InventoryRestockEvent inventoryRestockEvent = new InventoryRestockEvent(
-				order.getId(),
-				itemsToRestock,
-				LocalDateTime.now()
-		);
-		// 2. publish the event
-		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
-	}
+//	private void publishInventoryRestockEvent(Order order){
+//		// 1 build the inventoryRestockEvent
+//		List<ItemToReduce> itemsToRestock = order.getItems().stream()
+//				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
+//				.toList();
+//
+//		InventoryRestockEvent inventoryRestockEvent = new InventoryRestockEvent(
+//				order.getId(),
+//				itemsToRestock,
+//				LocalDateTime.now()
+//		);
+//		// 2. publish the event
+//		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
+//	}
 	
 	private void publishRefundEvent(RefundType refundType, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
