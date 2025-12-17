@@ -40,6 +40,9 @@ public class ReturnedItem {
 	@Column(name = "refund_transaction_id", nullable = false)
 	private String refundTransactionId;
 	
+	@Column(name = "refund_amount", nullable = false)
+	private BigDecimal refundAmount;
+	
 	@Column(name = "refunded_at")
 	private LocalDateTime refundedAt;
 	
