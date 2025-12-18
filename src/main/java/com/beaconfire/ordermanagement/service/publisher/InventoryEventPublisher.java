@@ -26,6 +26,7 @@ public class InventoryEventPublisher {
 	}
 	
 	public void publishInventoryReductionEvent(Order order){
+		// 5.1 map the persisted OrderItems into the event DTO format
 		List<ItemToReduce> itemsToReduce = order.getItems().stream()
 				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
 				.toList();

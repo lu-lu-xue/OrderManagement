@@ -10,6 +10,7 @@ import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import com.beaconfire.ordermanagement.service.publisher.InventoryEventPublisher;
 import com.beaconfire.ordermanagement.service.publisher.NotificationEventPublisher;
+import com.beaconfire.ordermanagement.service.publisher.PaymentEventPublisher;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,7 @@ public class OrderService {
 	private final PaymentProducer paymentProducer;
 	private final InventoryEventPublisher inventoryEventPublisher;
 	private final NotificationEventPublisher notificationEventPublisher;
+	private final PaymentEventPublisher paymentEventPublisher;
 	
 	
 	public OrderService(OrderRepository orderRepo,
@@ -46,7 +48,8 @@ public class OrderService {
 	                    InventoryProducer inventoryProducer,
 	                    PaymentProducer paymentProducer,
 	                    InventoryEventPublisher inventoryEventPublisher,
-	                    NotificationEventPublisher notificationEventPublisher){
+	                    NotificationEventPublisher notificationEventPublisher,
+	                    PaymentEventPublisher paymentEventPublisher){
 		this.orderRepo = orderRepo;
 		this.productServiceClient = productServiceClient;
 		this.notificationEventProducer = notificationEventProducer;
@@ -54,6 +57,7 @@ public class OrderService {
 		this.paymentProducer = paymentProducer;
 		this.inventoryEventPublisher = inventoryEventPublisher;
 		this.notificationEventPublisher = notificationEventPublisher;
+		this.paymentEventPublisher = paymentEventPublisher;
 	}
 	
 	// 1. place an order
@@ -97,39 +101,12 @@ public class OrderService {
 		Order savedOrder = orderRepo.save(newOrder);
 		
 		// 4. publish event for payment request
-		OrderChargeRequestEvent paymentRequestEvent = new OrderChargeRequestEvent(
-				savedOrder.getId(),
-				savedOrder.getUserId(),
-				savedOrder.getTotalAmount(),
-				orderRequestDto.getPaymentMethodToken()
-		);
-		paymentProducer.sendPaymentRequestEvent(paymentRequestEvent);
+		paymentEventPublisher.publishPaymentRequestEvent(savedOrder, orderRequestDto.getPaymentMethodToken());
 		
 		// 5. send an event to productService to reduce the inventory
-		// 5.1 map the persisted OrderItems into the event DTO format
-//		List<ItemToReduce> itemsToReduce = savedOrder.getItems().stream()
-//				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
-//				.toList();
-//
-//		InventoryReductionEvent inventoryEvent = new InventoryReductionEvent(
-//				savedOrder.getId(),
-//				itemsToReduce,
-//				LocalDateTime.now()
-//		);
-//		// 5.2 publish the inventoryEvent
-//		inventoryProducer.sendInventoryReductionEvent(inventoryEvent);
 		inventoryEventPublisher.publishInventoryReductionEvent(savedOrder);
 		
 		// 6. send an event to NotificationService for orderPlaced email
-		// 6.1 build the event
-//		OrderPlacedNotificationEvent notificationEvent = new OrderPlacedNotificationEvent(
-//				savedOrder.getId(),
-//				savedOrder.getUserId(),
-//				savedOrder.getTotalAmount(),
-//				savedOrder.getCreatedAt()
-//		);
-//		// 6.2 publish the notificationEvent
-//		notificationEventProducer.sendOrderPlacedNotificationEvent(notificationEvent);
 		notificationEventPublisher.publishOrderPlacedNotificationEvent(savedOrder);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
@@ -152,13 +129,6 @@ public class OrderService {
 		Page<Order> orderPage = orderRepo.findAll(pageable);
 		
 		// 2. map the contents of the Page<Order> to Page<OrderResponseDTO>
-//		List<OrderResponseDTO> ordersDTO = new ArrayList<>();
-//		for (Order order: orders){
-//			OrderResponseDTO orderDTO = OrderMapper.toResponseDTO(order);
-//			ordersDTO.add(orderDTO);
-//		}
-		
-//		return orderPage.map(OrderMapper::toResponseDTO);
 		// map contents of Page<Order> to Page<OrderResponseDTO>
 		return orderPage.map(order -> OrderMapper.toResponseDTO(order));
 	}
@@ -186,19 +156,10 @@ public class OrderService {
 		// 6. publish an event to paymentService
 		// 6.1 get the full cancellation
 		BigDecimal fullRefundAmount = savedOrder.getTotalAmount();
-		publishRefundEvent(RefundType.CANCELLATION, savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
+
+		paymentEventPublisher.publishPaymentRefundEvent(RefundType.CANCELLATION, savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
 		
 		// 7. publish an event to notificationService
-//		OrderCancelledNotificationEvent notificationEvent = new OrderCancelledNotificationEvent(
-//				savedOrder.getId(),
-//				savedOrder.getUserId(),
-//				fullRefundAmount,
-//				requestDto.getCancelReasonCode(),
-//				LocalDateTime.now()
-//		);
-//
-//		// 7.2 publish the notificationEvent
-//		notificationEventProducer.sendOrderCancelledNotificationEvent(notificationEvent);
 		notificationEventPublisher.publishOrderCancelledNotificationEvent(savedOrder, requestDto.getCancelReasonCode());
 		
 		return OrderMapper.toResponseDTO(savedOrder);
@@ -243,7 +204,8 @@ public class OrderService {
 		// strategies like, coupon, promotion, discount
 		// .......
 		BigDecimal refundTotal = isFullReturn ? order.getTotalAmount() : calculateRefundAmount(order, requestDto.getItemsToReturn());
-		publishRefundEvent(RefundType.RETURN, savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
+		
+		paymentEventPublisher.publishPaymentRefundEvent(RefundType.RETURN, savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
 		
 		// 7. publish an event to notificationService
 		notificationEventPublisher.publishOrderReturnedNotificationEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
@@ -332,59 +294,6 @@ public class OrderService {
 			);
 		}
 	}
-	
-//	private void publishInventoryRestockEvent(Order order){
-//		// 1 build the inventoryRestockEvent
-//		List<ItemToReduce> itemsToRestock = order.getItems().stream()
-//				.map(item -> new ItemToReduce(item.getProductId(), item.getQuantity()))
-//				.toList();
-//
-//		InventoryRestockEvent inventoryRestockEvent = new InventoryRestockEvent(
-//				order.getId(),
-//				itemsToRestock,
-//				LocalDateTime.now()
-//		);
-//		// 2. publish the event
-//		inventoryProducer.sendInventoryRestockEvent(inventoryRestockEvent);
-//	}
-	
-	private void publishRefundEvent(RefundType refundType, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
-		// 1 build the orderRefundRequestEvent
-		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
-				order.getId(),
-				order.getPaymentTransactionId(),
-				refundAmount,
-				order.getUserId(),
-				reasonCode,
-				refundType,
-				isFullRefund       // it's a full order cancellation
-		);
-		
-		// 2 publish the refund event based on refundType
-		switch(refundType){
-			case CANCELLATION:
-				paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_INVENTORY_FAILED_TOPIC, orderRefundRequestedEvent);
-			case RETURN:
-				paymentProducer.sendPaymentRefundEvent(PaymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
-			default:
-				log.error("Unknown refund type: {}", refundType);
-		}
-	}
-	
-//	private void publishReturnNotificationEvent(Order order, BigDecimal refundTotal, ReturnOrderRequestDTO requestDto, boolean isFullReturn){
-//		OrderReturnedNotificationEvent notificationEvent = new OrderReturnedNotificationEvent(
-//				order.getId(),
-//				order.getUserId(),
-//				refundTotal,
-//				requestDto.getReturnReasonCode(),
-//				isFullReturn,
-//				LocalDateTime.now()
-//		);
-//
-//		// publish the notificationEvent
-//		notificationEventProducer.sendOrderReturnedNotificationEvent(notificationEvent);
-//	}
-	
 	
 	private void validateReturnEligibility(Order order){
 		OrderStatus status = order.getStatus();
