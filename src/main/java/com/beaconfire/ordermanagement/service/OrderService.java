@@ -34,9 +34,6 @@ import java.util.stream.Collectors;
 public class OrderService {
 	private final OrderRepository orderRepo;
 	private final ProductServiceClient productServiceClient;
-	private final NotificationProducer notificationEventProducer;
-	private final InventoryProducer inventoryProducer;
-	private final PaymentProducer paymentProducer;
 	private final InventoryEventPublisher inventoryEventPublisher;
 	private final NotificationEventPublisher notificationEventPublisher;
 	private final PaymentEventPublisher paymentEventPublisher;
@@ -44,17 +41,11 @@ public class OrderService {
 	
 	public OrderService(OrderRepository orderRepo,
 	                    ProductServiceClient productServiceClient,
-	                    NotificationProducer notificationEventProducer,
-	                    InventoryProducer inventoryProducer,
-	                    PaymentProducer paymentProducer,
 	                    InventoryEventPublisher inventoryEventPublisher,
 	                    NotificationEventPublisher notificationEventPublisher,
 	                    PaymentEventPublisher paymentEventPublisher){
 		this.orderRepo = orderRepo;
 		this.productServiceClient = productServiceClient;
-		this.notificationEventProducer = notificationEventProducer;
-		this.inventoryProducer = inventoryProducer;
-		this.paymentProducer = paymentProducer;
 		this.inventoryEventPublisher = inventoryEventPublisher;
 		this.notificationEventPublisher = notificationEventPublisher;
 		this.paymentEventPublisher = paymentEventPublisher;

@@ -33,7 +33,9 @@ public class PaymentEventPublisher {
 		paymentProducer.sendPaymentRequestEvent(paymentRequestEvent);
 	}
 	
-	public void publishPaymentRefundEvent(RefundType refundType, Order order, BigDecimal refundAmount, String reasonCode, boolean isFullRefund){
+	public void publishPaymentRefundEvent(RefundType refundType, Order order,
+	                                      BigDecimal refundAmount, String reasonCode,
+	                                      boolean isFullRefund){
 		// 1 build the orderRefundRequestEvent
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),

@@ -1,10 +1,7 @@
 package com.beaconfire.ordermanagement.service.publisher;
 
 import com.beaconfire.ordermanagement.configuration.NotificationProducer;
-import com.beaconfire.ordermanagement.dto.OrderCancelledNotificationEvent;
-import com.beaconfire.ordermanagement.dto.OrderPlacedNotificationEvent;
-import com.beaconfire.ordermanagement.dto.OrderReturnedNotificationEvent;
-import com.beaconfire.ordermanagement.dto.ReturnOrderRequestDTO;
+import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.Order;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -61,5 +58,33 @@ public class NotificationEventPublisher {
 		
 		// publish the notificationEvent
 		notificationProducer.sendOrderReturnedNotificationEvent(notificationEvent);
+	}
+	
+	public void publishOrderConfirmedNotification(Order order){
+		OrderConfirmedNotificationEvent confirmEvent = new OrderConfirmedNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				order.getTotalAmount(),
+				order.getOrderConfirmedAt()
+		);
+		notificationProducer.sendOrderConfirmedNotification(confirmEvent);
+	}
+	
+	public void publishOrderShippedNotificationEvent(Order order, LocalDateTime shippedAt){
+		OrderShippedNotificationEvent notificationEvent = new OrderShippedNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				shippedAt
+		);
+		notificationProducer.sendOrderShippedNotificationEvent(notificationEvent);
+	}
+	
+	public void publishOrderDeliveredNotificationEvent(Order order, LocalDateTime deliveredAt){
+		OrderDeliveredNotificationEvent notificationEvent = new OrderDeliveredNotificationEvent(
+				order.getId(),
+				order.getUserId(),
+				deliveredAt
+		);
+		notificationProducer.sendOrderDeliveredNotificationEvent(notificationEvent);
 	}
 }

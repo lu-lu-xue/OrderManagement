@@ -11,6 +11,9 @@ import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import com.beaconfire.ordermanagement.exception.OrderNotFoundException;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import com.beaconfire.ordermanagement.repository.ReturnedItemRepository;
+import com.beaconfire.ordermanagement.service.publisher.InventoryEventPublisher;
+import com.beaconfire.ordermanagement.service.publisher.NotificationEventPublisher;
+import com.beaconfire.ordermanagement.service.publisher.PaymentEventPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,21 +31,21 @@ import java.util.List;
 @Transactional
 public class OrderEventHandler {
 	private final OrderRepository orderRepo;
-	private final InventoryProducer inventoryProducer;
 	private final ReturnedItemRepository returnedItemRepo;
-	private final NotificationProducer notificationProducer;
-	private final PaymentProducer paymentProducer;
+	private final InventoryEventPublisher inventoryEventPublisher;
+	private final NotificationEventPublisher notificationEventPublisher;
+	private final PaymentEventPublisher paymentEventPublisher;
 	
 	public OrderEventHandler(OrderRepository orderRepo,
-	                         InventoryProducer inventoryProducer,
 	                         ReturnedItemRepository returnedRepo,
-	                         NotificationProducer notificationProducer,
-	                         PaymentProducer paymentProducer){
+	                         InventoryEventPublisher inventoryEventPublisher,
+	                         NotificationEventPublisher notificationEventPublisher,
+	                         PaymentEventPublisher paymentEventPublisher){
 		this.orderRepo = orderRepo;
-		this.inventoryProducer = inventoryProducer;
 		this.returnedItemRepo = returnedRepo;
-		this.notificationProducer = notificationProducer;
-		this.paymentProducer = paymentProducer;
+		this.inventoryEventPublisher = inventoryEventPublisher;
+		this.notificationEventPublisher = notificationEventPublisher;
+		this.paymentEventPublisher = paymentEventPublisher;
 	}
 	
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
@@ -79,17 +82,10 @@ public class OrderEventHandler {
 		log.info("Order {} status updated to PAYMENT_CONFIRMED", event.getOrderId());
 		
 		// 5. publish event to ProductService for inventoryReduction
-		List<ItemToReduce> itemsToReduce = savedOrder.getItems().stream()
-				.map(item -> new ItemToReduce(item.getProductId(),
-						item.getQuantity()))
-				.toList();
 		
-		InventoryReductionEvent inventoryEvent = new InventoryReductionEvent(
-				savedOrder.getId(),
-				itemsToReduce,
-				LocalDateTime.now()
-		);
-		inventoryProducer.sendInventoryReductionEvent(inventoryEvent);
+		inventoryEventPublisher.publishInventoryReductionEvent(savedOrder);
+		
+		
 		log.info("Inventory reduction event sent for order: {}", savedOrder.getId());
 	}
 	
@@ -255,13 +251,8 @@ public class OrderEventHandler {
 		log.info("Order {} fully confirmed (payment + inventory)", event.getOrderId());
 		
 		// 5. send notification to user
-		OrderConfirmedNotificationEvent confirmEvent = new OrderConfirmedNotificationEvent(
-				order.getId(),
-				order.getUserId(),
-				order.getTotalAmount(),
-				order.getOrderConfirmedAt()
-		);
-		notificationProducer.sendOrderConfirmedNotification(confirmEvent);
+		notificationEventPublisher.publishOrderConfirmedNotification(order);
+		
 		
 		// 6. publish event to shipmentService to start the shipment
 	}
@@ -280,16 +271,7 @@ public class OrderEventHandler {
 		orderRepo.save(order);
 		
 		// 3. trigger paymentRefund
-		OrderRefundRequestedEvent refundEvent = new OrderRefundRequestedEvent(
-				order.getId(),
-				order.getPaymentTransactionId(),
-				order.getTotalAmount(),
-				order.getUserId(),
-				"Inventory_unavailable",
-				RefundType.INVENTORY_FAILED,
-				true
-		);
-		paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_INVENTORY_FAILED_TOPIC, refundEvent);
+		paymentEventPublisher.publishPaymentRefundEvent(RefundType.CANCELLATION, order, order.getTotalAmount(), "Inventory_unavailable", true);
 	}
 	
 	// ==== shipment consumer
@@ -312,12 +294,7 @@ public class OrderEventHandler {
 		orderRepo.save(order);
 		
 		// publish event to notificationService
-		OrderShippedNotificationEvent notificationEvent = new OrderShippedNotificationEvent(
-				order.getId(),
-				order.getUserId(),
-				event.getShippedAt()
-		);
-		notificationProducer.sendOrderShippedNotificationEvent(notificationEvent);
+		notificationEventPublisher.publishOrderShippedNotificationEvent(order, event.getShippedAt());
 	}
 	
 	public void handleOrderDelivered(OrderDeliveredEvent event){
@@ -339,11 +316,6 @@ public class OrderEventHandler {
 		orderRepo.save(order);
 		
 		// publish event to notificationService
-		OrderDeliveredNotificationEvent notificationEvent = new OrderDeliveredNotificationEvent(
-				order.getId(),
-				order.getUserId(),
-				event.getDeliveredAt()
-		);
-		notificationProducer.sendOrderDeliveredNotificationEvent(notificationEvent);
+		notificationEventPublisher.publishOrderDeliveredNotificationEvent(order, event.getDeliveredAt());
 	}
 }
