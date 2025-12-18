@@ -9,6 +9,7 @@ import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import com.beaconfire.ordermanagement.service.publisher.InventoryEventPublisher;
+import com.beaconfire.ordermanagement.service.publisher.NotificationEventPublisher;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,7 @@ public class OrderService {
 	private final InventoryProducer inventoryProducer;
 	private final PaymentProducer paymentProducer;
 	private final InventoryEventPublisher inventoryEventPublisher;
+	private final NotificationEventPublisher notificationEventPublisher;
 	
 	
 	public OrderService(OrderRepository orderRepo,
@@ -43,13 +45,15 @@ public class OrderService {
 	                    NotificationProducer notificationEventProducer,
 	                    InventoryProducer inventoryProducer,
 	                    PaymentProducer paymentProducer,
-	                    InventoryEventPublisher inventoryEventPublisher){
+	                    InventoryEventPublisher inventoryEventPublisher,
+	                    NotificationEventPublisher notificationEventPublisher){
 		this.orderRepo = orderRepo;
 		this.productServiceClient = productServiceClient;
 		this.notificationEventProducer = notificationEventProducer;
 		this.inventoryProducer = inventoryProducer;
 		this.paymentProducer = paymentProducer;
 		this.inventoryEventPublisher = inventoryEventPublisher;
+		this.notificationEventPublisher = notificationEventPublisher;
 	}
 	
 	// 1. place an order
@@ -118,14 +122,15 @@ public class OrderService {
 		
 		// 6. send an event to NotificationService for orderPlaced email
 		// 6.1 build the event
-		OrderPlacedNotificationEvent notificationEvent = new OrderPlacedNotificationEvent(
-				savedOrder.getId(),
-				savedOrder.getUserId(),
-				savedOrder.getTotalAmount(),
-				savedOrder.getCreatedAt()
-		);
-		// 6.2 publish the notificationEvent
-		notificationEventProducer.sendOrderPlacedNotificationEvent(notificationEvent);
+//		OrderPlacedNotificationEvent notificationEvent = new OrderPlacedNotificationEvent(
+//				savedOrder.getId(),
+//				savedOrder.getUserId(),
+//				savedOrder.getTotalAmount(),
+//				savedOrder.getCreatedAt()
+//		);
+//		// 6.2 publish the notificationEvent
+//		notificationEventProducer.sendOrderPlacedNotificationEvent(notificationEvent);
+		notificationEventPublisher.publishOrderPlacedNotificationEvent(savedOrder);
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -184,16 +189,17 @@ public class OrderService {
 		publishRefundEvent(RefundType.CANCELLATION, savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
 		
 		// 7. publish an event to notificationService
-		OrderCancelledNotificationEvent notificationEvent = new OrderCancelledNotificationEvent(
-				savedOrder.getId(),
-				savedOrder.getUserId(),
-				fullRefundAmount,
-				requestDto.getCancelReasonCode(),
-				LocalDateTime.now()
-		);
-		
-		// 7.2 publish the notificationEvent
-		notificationEventProducer.sendOrderCancelledNotificationEvent(notificationEvent);
+//		OrderCancelledNotificationEvent notificationEvent = new OrderCancelledNotificationEvent(
+//				savedOrder.getId(),
+//				savedOrder.getUserId(),
+//				fullRefundAmount,
+//				requestDto.getCancelReasonCode(),
+//				LocalDateTime.now()
+//		);
+//
+//		// 7.2 publish the notificationEvent
+//		notificationEventProducer.sendOrderCancelledNotificationEvent(notificationEvent);
+		notificationEventPublisher.publishOrderCancelledNotificationEvent(savedOrder, requestDto.getCancelReasonCode());
 		
 		return OrderMapper.toResponseDTO(savedOrder);
 	}
@@ -240,7 +246,7 @@ public class OrderService {
 		publishRefundEvent(RefundType.RETURN, savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
 		
 		// 7. publish an event to notificationService
-		publishReturnNotificationEvent(savedOrder, refundTotal, requestDto, isFullReturn);
+		notificationEventPublisher.publishOrderReturnedNotificationEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
 		
 		// 8. publish an event to shipmentService,
 		// requesting a tracking number for customer to return??
@@ -365,19 +371,19 @@ public class OrderService {
 		}
 	}
 	
-	private void publishReturnNotificationEvent(Order order, BigDecimal refundTotal, ReturnOrderRequestDTO requestDto, boolean isFullReturn){
-		OrderReturnedNotificationEvent notificationEvent = new OrderReturnedNotificationEvent(
-				order.getId(),
-				order.getUserId(),
-				refundTotal,
-				requestDto.getReturnReasonCode(),
-				isFullReturn,
-				LocalDateTime.now()
-		);
-		
-		// publish the notificationEvent
-		notificationEventProducer.sendOrderReturnedNotificationEvent(notificationEvent);
-	}
+//	private void publishReturnNotificationEvent(Order order, BigDecimal refundTotal, ReturnOrderRequestDTO requestDto, boolean isFullReturn){
+//		OrderReturnedNotificationEvent notificationEvent = new OrderReturnedNotificationEvent(
+//				order.getId(),
+//				order.getUserId(),
+//				refundTotal,
+//				requestDto.getReturnReasonCode(),
+//				isFullReturn,
+//				LocalDateTime.now()
+//		);
+//
+//		// publish the notificationEvent
+//		notificationEventProducer.sendOrderReturnedNotificationEvent(notificationEvent);
+//	}
 	
 	
 	private void validateReturnEligibility(Order order){
