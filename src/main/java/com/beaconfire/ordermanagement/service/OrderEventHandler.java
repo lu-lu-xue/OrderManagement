@@ -1,8 +1,5 @@
 package com.beaconfire.ordermanagement.service;
 
-import com.beaconfire.ordermanagement.configuration.InventoryProducer;
-import com.beaconfire.ordermanagement.configuration.NotificationProducer;
-import com.beaconfire.ordermanagement.configuration.PaymentProducer;
 import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.Order;
 import com.beaconfire.ordermanagement.entity.OrderStatus;
@@ -82,9 +79,7 @@ public class OrderEventHandler {
 		log.info("Order {} status updated to PAYMENT_CONFIRMED", event.getOrderId());
 		
 		// 5. publish event to ProductService for inventoryReduction
-		
 		inventoryEventPublisher.publishInventoryReductionEvent(savedOrder);
-		
 		
 		log.info("Inventory reduction event sent for order: {}", savedOrder.getId());
 	}
@@ -143,8 +138,8 @@ public class OrderEventHandler {
 		
 		// 2. update order status
 		order.setStatus(OrderStatus.CANCELLED);
-		order.setRefundTransactionId(event.getRefundTransactionId());
-		order.setRefundedAt(event.getRefundedAt());
+//		order.setRefundTransactionId(event.getRefundTransactionId());
+//		order.setRefundedAt(event.getRefundedAt());
 		
 		orderRepo.save(order);
 		log.info("Order {} cancelled, refund completed", event.getOrderId());
@@ -198,10 +193,10 @@ public class OrderEventHandler {
 		}
 		
 		// 6. update refund amount for this order
-		BigDecimal currentRefund = order.getRefundAmount() != null
-				? order.getRefundAmount()
+		BigDecimal currentRefund = order.getTotalRefundAmount() != null
+				? order.getTotalRefundAmount()
 				: BigDecimal.ZERO;
-		order.setRefundAmount(currentRefund.add(event.getRefundAmount()));
+//		order.setRefundAmount(currentRefund.add(event.getRefundAmount()));
 		
 		orderRepo.save(order);
 		log.info("Order {} return refund completed, amount: {}",
@@ -220,7 +215,6 @@ public class OrderEventHandler {
 	/*
 	* handle InventoryReserved InventoryReservedFailed events
 	* */
-	
 	public void handleInventoryReserved(InventoryReservedEvent event){
 		log.info("Handling inventory reserved for order: {}", event.getOrderId());
 		

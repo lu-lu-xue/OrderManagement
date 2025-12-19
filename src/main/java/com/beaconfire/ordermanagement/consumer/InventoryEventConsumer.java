@@ -1,7 +1,6 @@
 package com.beaconfire.ordermanagement.consumer;
 
 import com.beaconfire.ordermanagement.consumer.util.EventProcessorUtil;
-import com.beaconfire.ordermanagement.dto.InventoryReductionEvent;
 import com.beaconfire.ordermanagement.dto.InventoryReservationFailedEvent;
 import com.beaconfire.ordermanagement.dto.InventoryReservedEvent;
 import com.beaconfire.ordermanagement.service.OrderEventHandler;

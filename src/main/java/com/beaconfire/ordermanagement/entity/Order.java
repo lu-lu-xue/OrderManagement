@@ -57,22 +57,17 @@ public class Order {
 	@Column(name = "order_confirmed_at")
 	private LocalDateTime orderConfirmedAt;
 	
-	@Column(name = "refund_transaction_id")
-	private String refundTransactionId;
-
-	@Column(name = "refund_amount")
-	private BigDecimal refundAmount;
-
-	@Column(name = "refunded_at")
-	private LocalDateTime refundedAt;
-	
-	@Column(nullable = true)
-	private boolean isFullReturn = false;
-	
 	// get all returnedItems
 	public List<ReturnedItem> getAllReturnedItems(){
 		return items.stream()
 				.flatMap(item -> item.getReturnedItems().stream())
 				.collect(Collectors.toList());
+	}
+	
+	// get total refundAmount
+	public BigDecimal getTotalRefundAmount(){
+		return this.getAllReturnedItems().stream()
+				.map(ReturnedItem::getRefundAmount)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 }

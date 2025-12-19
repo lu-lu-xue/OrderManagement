@@ -1,9 +1,6 @@
 package com.beaconfire.ordermanagement.service;
 
 import com.beaconfire.ordermanagement.client.product.ProductServiceClient;
-import com.beaconfire.ordermanagement.configuration.InventoryProducer;
-import com.beaconfire.ordermanagement.configuration.NotificationProducer;
-import com.beaconfire.ordermanagement.configuration.PaymentProducer;
 import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
@@ -174,7 +171,7 @@ public class OrderService {
 		if (!isFullReturn){
 			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
 		} else {
-			order.setFullReturn(true);
+//			order.setFullReturn(true);
 			order.setStatus(OrderStatus.RETURNED);
 		}
 		
