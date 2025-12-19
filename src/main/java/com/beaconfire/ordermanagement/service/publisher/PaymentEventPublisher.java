@@ -40,7 +40,7 @@ public class PaymentEventPublisher {
 		log.info("Publishing refund event for Order: {}, Type: {}, Amount: {}",
 				order.getId(), refundType, refundAmount);
 		
-		// 1 build the orderRefundRequestEvent
+		// 1 build the orderRefundRequestedEvent
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
 				order.getPaymentTransactionId(),

@@ -131,6 +131,10 @@ public class OrderEventHandler {
 		}
 	}
 	
+	public void handleRefundFailed(RefundFailedEvent event){
+	
+	}
+	
 	
 	private void handleCancellationRefund(Order order, RefundCompletedEvent event) {
 		// 1. idempotency check
@@ -141,8 +145,6 @@ public class OrderEventHandler {
 		
 		// 2. update order status
 		order.setStatus(OrderStatus.CANCELLED);
-//		order.setRefundTransactionId(event.getRefundTransactionId());
-//		order.setRefundedAt(event.getRefundedAt());
 		
 		orderRepo.save(order);
 		log.info("Order {} cancelled, refund completed", event.getOrderId());

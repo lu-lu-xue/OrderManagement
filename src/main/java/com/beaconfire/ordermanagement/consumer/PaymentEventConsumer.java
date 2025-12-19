@@ -4,6 +4,7 @@ import com.beaconfire.ordermanagement.consumer.util.EventProcessorUtil;
 import com.beaconfire.ordermanagement.dto.PaymentConfirmedEvent;
 import com.beaconfire.ordermanagement.dto.PaymentFailedEvent;
 import com.beaconfire.ordermanagement.dto.RefundCompletedEvent;
+import com.beaconfire.ordermanagement.dto.RefundFailedEvent;
 import com.beaconfire.ordermanagement.service.OrderEventHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -49,5 +50,15 @@ public class PaymentEventConsumer {
 		eventUtil.processEvent("refund-completed",
 				event.getOrderId(),
 				() -> eventHandler.handleRefundCompletion(event));
+	}
+	
+	@KafkaListener(
+			topics = "${app.kafka.topics.payment-refund-failed}",
+			groupId = "order-refund-status"
+	)
+	public void handleRefundFailed(RefundFailedEvent event){
+		eventUtil.processEvent("refund-failed",
+				event.getOrderId(),
+				() -> eventHandler.handleRefundFailed(event));
 	}
 }

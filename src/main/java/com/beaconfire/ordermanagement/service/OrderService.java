@@ -133,6 +133,9 @@ public class OrderService {
 		
 		// 3. create ReturnedItem records for all items in the order
 		//    isCancellation = true, update OrderStatus CANCELLATION_PENDING
+		//    after the paymentService return refundCompletion,
+		//    then it should be updated to CANCELLED,
+		//    which happened in handleRefundCompleted (handleCancellationRefund + handleReturnRefund) in PaymentEventConsumer
 		List<ReturnedItem> cancellationItems = createReturnedItems(order, order.mapAllItemsToRequestDto(),
 				requestDto.getCancelReasonCode(),true);
 		order.setStatus(OrderStatus.PENDING_CANCELLATION);
@@ -175,11 +178,14 @@ public class OrderService {
 		// 2.2. validate items in the order
 		boolean isFullReturn = validateReturnItems(order, requestDto);
 		
-		// 3. update status
+		// 3. update status to be pending
+		//    after the paymentService return refundCompletion,
+		//    then it should be updated to RETURNED OR PARTIALLY_RETURNED,
+		//    which happened in handleRefundCompleted ((handleCancellationRefund + handleReturnRefund)) in PaymentEventConsumer
 		if (!isFullReturn){
-			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
+			order.setStatus(OrderStatus.PENDING_PARTIALLY_RETURNED);
 		} else {
-			order.setStatus(OrderStatus.RETURNED);
+			order.setStatus(OrderStatus.PENDING_RETURNED);
 		}
 		
 		// 3.2 create Order
@@ -392,4 +398,6 @@ public class OrderService {
 		
 		return totalRefund;
 	}
+	
+//	private
 }

@@ -77,6 +77,7 @@ app:
       payment-confirmed: payment.charge-confirmed
       payment-failed: payment.charge-failed
       payment-refund-done: payment.refund-completed
+      payment-refund-failed: payment.refund-failed
 
       inventory-reserved: inventory.reserved-confirmation
       inventory-reservation-failed: inventory.reservation-failed
