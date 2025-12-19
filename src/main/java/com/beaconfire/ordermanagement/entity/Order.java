@@ -1,5 +1,6 @@
 package com.beaconfire.ordermanagement.entity;
 
+import com.beaconfire.ordermanagement.dto.ItemQuantityDTO;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.*;
@@ -75,5 +76,11 @@ public class Order {
 		return this.getAllReturnedItems().stream()
 				.map(ReturnedItem::getRefundTransactionId)
 				.collect(Collectors.toList());
+	}
+	
+	public List<ItemQuantityDTO> mapAllItemsToRequestDto(){
+		return this.items.stream()
+				.map(item -> new ItemQuantityDTO(item.getProductId(), item.getQuantity()))
+				.toList();
 	}
 }

@@ -131,12 +131,20 @@ public class OrderService {
 		// 2. apply business rule: can only cancel if the status is not shipped or delivered
 		validateCancellationEligibility(order);
 		
-		// 3. update status (the core action)
-		order.setStatus(OrderStatus.CANCELLED);
+		// 3. create ReturnedItem records for all items in the order
+		//    isCancellation = true, update OrderStatus CANCELLATION_PENDING
+		List<ReturnedItem> cancellationItems = createReturnedItems(order, order.mapAllItemsToRequestDto(),
+				requestDto.getCancelReasonCode(),true);
+		order.setStatus(OrderStatus.PENDING_CANCELLATION);
 		
 		// 4. save and return DTO
 		Order savedOrder = orderRepo.save(order);
 		
+		// obtain all returnedItemIds
+		List<String> returnedItemIds = cancellationItems.stream()
+				.map(ReturnedItem::getId)
+						.toList();
+ 		
 		// 5. publish an event using Kafka (KafkaTemplate) to
 		// update the product's inventory
 		inventoryEventPublisher.publishInventoryRestockEvent(savedOrder);
@@ -145,7 +153,7 @@ public class OrderService {
 		// 6.1 get the full cancellation
 		BigDecimal fullRefundAmount = savedOrder.getTotalAmount();
 
-		paymentEventPublisher.publishPaymentRefundEvent(RefundType.CANCELLATION, savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true);
+		paymentEventPublisher.publishPaymentRefundEvent(RefundType.CANCELLATION, savedOrder, fullRefundAmount, requestDto.getCancelReasonCode(), true, returnedItemIds);
 		
 		// 7. publish an event to notificationService
 		notificationEventPublisher.publishOrderCancelledNotificationEvent(savedOrder, requestDto.getCancelReasonCode());
@@ -175,10 +183,15 @@ public class OrderService {
 		}
 		
 		// 3.2 create Order
-		createReturnedItems(order, requestDto);
+		List<ReturnedItem> itemsToReturn = createReturnedItems(order, requestDto.getItemsToReturn(),requestDto.getReturnReasonCode(), false);
 		
 		// 4. save and return DTO
 		Order savedOrder = orderRepo.save(order);
+		
+		// obtain all returnedItemIds
+		List<String> returnedItemIds = itemsToReturn.stream()
+				.map(ReturnedItem::getId)
+				.toList();
 		
 		// 5. publish an event to
 		// update the inventory through ProductService
@@ -192,7 +205,7 @@ public class OrderService {
 		// .......
 		BigDecimal refundTotal = isFullReturn ? order.getTotalAmount() : calculateRefundAmount(order, requestDto.getItemsToReturn());
 		
-		paymentEventPublisher.publishPaymentRefundEvent(RefundType.RETURN, savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
+		paymentEventPublisher.publishPaymentRefundEvent(RefundType.RETURN, savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn, returnedItemIds);
 		
 		// 7. publish an event to notificationService
 		notificationEventPublisher.publishOrderReturnedNotificationEvent(savedOrder, refundTotal, requestDto.getReturnReasonCode(), isFullReturn);
@@ -203,9 +216,9 @@ public class OrderService {
 	}
 	
 	// code cleaning
-	private List<OrderItem> buildOrderItems(List<OrderItemRequestDTO> orderItemDto){
+	private List<OrderItem> buildOrderItems(List<ItemQuantityDTO> orderItemDto){
 		List<OrderItem> orderItems = new ArrayList<>();
-		for (OrderItemRequestDTO itemRequest: orderItemDto){
+		for (ItemQuantityDTO itemRequest: orderItemDto){
 			String productId = itemRequest.getProductId();
 			Integer quantity = itemRequest.getQuantity();
 			
@@ -261,25 +274,74 @@ public class OrderService {
 		}
 	}
 	
-	private void createReturnedItems(Order order, ReturnOrderRequestDTO requestDto){
+	/*
+	* handle create ReturnedItem list for cancelOrder and returnOrder methods
+	* params:
+	*   Order
+	*   items to Process:
+	*       if cancellation, list of all items
+	*       if return, list of items to return
+	*   reason
+	*   isCancellation: for items to cancel or return
+	* */
+//	private List<ReturnedItem> createReturnedItemsFromCancellation(Order order, CancelOrderRequestDTO requestDto){
+//		List<ReturnedItem> returnedItems = new ArrayList<>();
+//
+//		for (OrderItem orderItem: order.getItems()){
+//			ReturnedItem returnedItem = ReturnedItem.builder()
+//					.orderItem(orderItem)
+//					.quantity(orderItem.getQuantity())
+//					.returnReason(requestDto.getCancelReasonCode())
+//					.returnedAt(LocalDateTime.now())
+//					.isCancellation(true)
+//					.refundAmount(orderItem.getSubtotal())
+//					.build();
+//
+//			returnedItems.add(returnedItem);
+//			orderItem.addReturnedItem(returnedItem);
+//		}
+//
+//		return returnedItems;
+//	}
+	
+	
+	public List<ReturnedItem> createReturnedItems(Order order, List<ItemQuantityDTO> itemsToProcess,
+	                                 String precessReason, boolean isCancellation){
+		List<ReturnedItem> returnedItems = new ArrayList<>();
+		
 		// create returnedItems
-		for (ReturnItemDTO returnItemDto: requestDto.getItemsToReturn()){
+		for (ItemQuantityDTO returnItemDto: itemsToProcess){
+			// 1. fetch order item
 			OrderItem orderItem = findOrderItem(order, returnItemDto.getProductId());
+			
+			// 2. fetch current request return quantity
+			int requestQty = orderItem.getReturnedQuantity();
+			if (requestQty > orderItem.getRemainingQuantity()){
+				throw new IllegalStateException(String.format(
+						"Cannot return {} units, only {} units remaining for product {}",
+						requestQty, orderItem.getRemainingQuantity(), orderItem.getProductName()
+				));
+			}
+			
+			// 3. update orderItem returned quantity
+			orderItem.setReturnedQuantity(orderItem.getReturnedQuantity() + requestQty);
+			
+			// 4. build ReturnedItem
 			ReturnedItem returnedItem = ReturnedItem.builder()
-					.orderItem(orderItem)
-					.quantity(returnItemDto.getQuantity())
-					.returnReason(requestDto.getReturnReasonCode())
+					.quantity(orderItem.getQuantity())
+					.returnReason(precessReason)
 					.returnedAt(LocalDateTime.now())
+					.isCancellation(isCancellation)
+					.refundAmount(orderItem.getUnitPrice().multiply(BigDecimal.valueOf(requestQty)))
+					.refundStatus(RefundStatus.PENDING)
 					.build();
 			
 			// set up the bi-directional relationship
+			returnedItems.add(returnedItem);
 			orderItem.addReturnedItem(returnedItem);
-			
-			// update OrderItem returnedQuantity
-			orderItem.setReturnedQuantity(
-					orderItem.getReturnedQuantity() + returnItemDto.getQuantity()
-			);
 		}
+		
+		return returnedItems;
 	}
 	
 	private void validateReturnEligibility(Order order){
@@ -291,7 +353,7 @@ public class OrderService {
 	
 	private boolean validateReturnItems(Order order,
 	                                   ReturnOrderRequestDTO requestDto){
-		List<ReturnItemDTO> itemsToReturn = requestDto.getItemsToReturn();
+		List<ItemQuantityDTO> itemsToReturn = requestDto.getItemsToReturn();
 		// 1. map for quick lookup of original order items by productId
 		Map<String, OrderItem> originalItemsMap = order.getItems().stream()
 				.collect(Collectors.toMap(OrderItem::getProductId, Function.identity()));
@@ -300,7 +362,7 @@ public class OrderService {
 		int totalOriginalQuantity = 0;
 		int totalReturnedQuantity = 0;
 		
-		for (ReturnItemDTO returnItemDTO: itemsToReturn){
+		for (ItemQuantityDTO returnItemDTO: itemsToReturn){
 			OrderItem originalItem = originalItemsMap.get(returnItemDTO.getProductId());
 			
 			// 1. validation: Item must exist in the original order
@@ -337,11 +399,11 @@ public class OrderService {
 	
 	// calculate the full refundAmount for returning items from an order
 	// it can contain more details: coupon, promotion, discount, shipment...
-	private BigDecimal calculateRefundAmount(Order order, List<ReturnItemDTO> itemsToReturn){
+	private BigDecimal calculateRefundAmount(Order order, List<ItemQuantityDTO> itemsToReturn){
 		BigDecimal totalRefund = BigDecimal.ZERO;
 		
 		// 1. calculate the gross value of the returned items
-		for (ReturnItemDTO returnItem: itemsToReturn){
+		for (ItemQuantityDTO returnItem: itemsToReturn){
 			OrderItem item = findOrderItem(order, returnItem.getProductId());
 			
 			// calculate the price before applying any other discounts

@@ -17,6 +17,6 @@ import java.util.List;
 @NoArgsConstructor
 public class ReturnOrderRequestDTO {
 	private String returnReasonCode;            // CUSTOMER_REQUEST, INVENTORY_ISSUE
-	private List<ReturnItemDTO> itemsToReturn;  // return specific items only
+	private List<ItemQuantityDTO> itemsToReturn;  // return specific items only
 	private String notes;                       // optional
 }

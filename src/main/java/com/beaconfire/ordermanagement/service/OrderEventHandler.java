@@ -32,17 +32,20 @@ public class OrderEventHandler {
 	private final InventoryEventPublisher inventoryEventPublisher;
 	private final NotificationEventPublisher notificationEventPublisher;
 	private final PaymentEventPublisher paymentEventPublisher;
+	private final OrderService orderService;
 	
 	public OrderEventHandler(OrderRepository orderRepo,
 	                         ReturnedItemRepository returnedRepo,
 	                         InventoryEventPublisher inventoryEventPublisher,
 	                         NotificationEventPublisher notificationEventPublisher,
-	                         PaymentEventPublisher paymentEventPublisher){
+	                         PaymentEventPublisher paymentEventPublisher,
+	                         OrderService orderService){
 		this.orderRepo = orderRepo;
 		this.returnedItemRepo = returnedRepo;
 		this.inventoryEventPublisher = inventoryEventPublisher;
 		this.notificationEventPublisher = notificationEventPublisher;
 		this.paymentEventPublisher = paymentEventPublisher;
+		this.orderService = orderService;
 	}
 	
 	public void handlePaymentConfirmed(PaymentConfirmedEvent event){
@@ -260,12 +263,32 @@ public class OrderEventHandler {
 						"Order not found with ID: " + event.getOrderId()
 				));
 		
-		// 2. update the status
-		order.setStatus(OrderStatus.INVENTORY_FAILED);
-		orderRepo.save(order);
+		// 2. idempotency
+		if(order.getStatus() == OrderStatus.INVENTORY_FAILED){
+			log.warn("Order {} already marked as INVENTORY_FAILED, skipping refund trigger.", order.getId());
+			return;
+		}
 		
-		// 3. trigger paymentRefund
-		paymentEventPublisher.publishPaymentRefundEvent(RefundType.CANCELLATION, order, order.getTotalAmount(), "Inventory_unavailable", true);
+		// 3. update the status
+		order.setStatus(OrderStatus.INVENTORY_FAILED);
+		// inventoryFailure: order cancellation
+		List<ReturnedItem> returnedItems = orderService.createReturnedItems(
+				order,
+				order.mapAllItemsToRequestDto(),
+				"INVENTORY_UNAVAILABLE",
+				true
+		);
+		
+		Order savedOrder = orderRepo.save(order);
+		orderRepo.flush(); // ensure the ID is re-assigned
+		
+		// 4. obtain returned ids
+		List<String> returnedItemIds = returnedItems.stream()
+				.map(ReturnedItem::getId)
+						.toList();
+		
+		// 5. trigger paymentRefund
+		paymentEventPublisher.publishPaymentRefundEvent(RefundType.INVENTORY_FAILED, order, order.getTotalAmount(), "Inventory_unavailable", true, returnedItemIds);
 	}
 	
 	// ==== shipment consumer

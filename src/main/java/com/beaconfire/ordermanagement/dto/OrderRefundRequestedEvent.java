@@ -1,12 +1,14 @@
 package com.beaconfire.ordermanagement.dto;
 
 import com.beaconfire.ordermanagement.entity.RefundType;
+import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * @author luluxue
@@ -23,5 +25,7 @@ public class OrderRefundRequestedEvent {
 	private String userId;
 	private String refundReasonCode;
 	private RefundType refundType;
-	private boolean isPartialRefund;
+	private boolean isFullRefund;
+	// returnedItems
+	private List<String> returnedItemIds;
 }

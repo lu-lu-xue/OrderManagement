@@ -2,7 +2,6 @@ package com.beaconfire.ordermanagement.configuration;
 
 import com.beaconfire.ordermanagement.dto.OrderChargeRequestEvent;
 import com.beaconfire.ordermanagement.dto.OrderRefundRequestedEvent;
-import com.beaconfire.ordermanagement.dto.OrderChargeRequestEvent;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 

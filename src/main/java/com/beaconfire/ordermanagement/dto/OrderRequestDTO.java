@@ -31,7 +31,7 @@ public class OrderRequestDTO {
 	private String paymentMethod;
 	
 	@NotEmpty(message = "Order must contain at least one item.")
-	private List<OrderItemRequestDTO> items;
+	private List<ItemQuantityDTO> items;
 	
 	@NotNull(message = "Idempotency key is required.")
 	private String idempotencyKey;

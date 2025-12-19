@@ -5,7 +5,7 @@ package com.beaconfire.ordermanagement.entity;
  * @date 2025-12-18
  */
 public enum RefundStatus {
-	PENDING_REFUND,
+	PENDING,
 	COMPLETED,
 	FAILED
 }

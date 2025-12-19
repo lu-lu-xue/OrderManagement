@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * @author luluxue
@@ -35,7 +36,10 @@ public class PaymentEventPublisher {
 	
 	public void publishPaymentRefundEvent(RefundType refundType, Order order,
 	                                      BigDecimal refundAmount, String reasonCode,
-	                                      boolean isFullRefund){
+	                                      boolean isFullRefund, List<String> returnedItemIds){
+		log.info("Publishing refund event for Order: {}, Type: {}, Amount: {}",
+				order.getId(), refundType, refundAmount);
+		
 		// 1 build the orderRefundRequestEvent
 		OrderRefundRequestedEvent orderRefundRequestedEvent = new OrderRefundRequestedEvent(
 				order.getId(),
@@ -44,17 +48,21 @@ public class PaymentEventPublisher {
 				order.getUserId(),
 				reasonCode,
 				refundType,
-				isFullRefund       // it's a full order cancellation
+				isFullRefund,       // it's a full order cancellation
+				returnedItemIds
 		);
 		
 		// 2 publish the refund event based on refundType
 		switch(refundType){
 			case CANCELLATION:
 				paymentProducer.sendPaymentRefundEvent(PaymentProducer.CANCELLED_INVENTORY_FAILED_TOPIC, orderRefundRequestedEvent);
+				break;
 			case RETURN:
 				paymentProducer.sendPaymentRefundEvent(PaymentProducer.RETURNED_TOPIC, orderRefundRequestedEvent);
+				break;
 			default:
 				log.error("Unknown refund type: {}", refundType);
+				throw new IllegalArgumentException("Unsupported refund type: " + refundType);
 		}
 	}
 	

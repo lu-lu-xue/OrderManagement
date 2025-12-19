@@ -7,17 +7,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 /**
  * @author luluxue
- * @date 2025-11-19
+ * @date 2025-12-03
  */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class OrderItemRequestDTO {
+public class ItemQuantityDTO {
 	@NotNull(message = "Product ID is required.")
 	private String productId;
 	
