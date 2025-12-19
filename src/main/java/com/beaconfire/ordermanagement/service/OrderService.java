@@ -284,27 +284,6 @@ public class OrderService {
 	*   reason
 	*   isCancellation: for items to cancel or return
 	* */
-//	private List<ReturnedItem> createReturnedItemsFromCancellation(Order order, CancelOrderRequestDTO requestDto){
-//		List<ReturnedItem> returnedItems = new ArrayList<>();
-//
-//		for (OrderItem orderItem: order.getItems()){
-//			ReturnedItem returnedItem = ReturnedItem.builder()
-//					.orderItem(orderItem)
-//					.quantity(orderItem.getQuantity())
-//					.returnReason(requestDto.getCancelReasonCode())
-//					.returnedAt(LocalDateTime.now())
-//					.isCancellation(true)
-//					.refundAmount(orderItem.getSubtotal())
-//					.build();
-//
-//			returnedItems.add(returnedItem);
-//			orderItem.addReturnedItem(returnedItem);
-//		}
-//
-//		return returnedItems;
-//	}
-	
-	
 	public List<ReturnedItem> createReturnedItems(Order order, List<ItemQuantityDTO> itemsToProcess,
 	                                 String precessReason, boolean isCancellation){
 		List<ReturnedItem> returnedItems = new ArrayList<>();
