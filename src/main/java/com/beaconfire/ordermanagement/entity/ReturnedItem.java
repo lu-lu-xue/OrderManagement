@@ -37,7 +37,13 @@ public class ReturnedItem {
 	@Column(name = "returned_at")
 	private LocalDateTime returnedAt;
 	
-	@Column(name = "refund_transaction_id", nullable = false)
+	@Column(name = "is_cancellation")
+	private boolean isCancellation = false; // true - cancellation, false - return
+	
+	@Enumerated(EnumType.STRING)
+	private RefundStatus refundStatus;
+	
+	@Column(name = "refund_transaction_id", nullable = true)
 	private String refundTransactionId;
 	
 	@Column(name = "refund_amount", nullable = false)

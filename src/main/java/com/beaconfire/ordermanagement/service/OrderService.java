@@ -171,7 +171,6 @@ public class OrderService {
 		if (!isFullReturn){
 			order.setStatus(OrderStatus.PARTIALLY_RETURNED);
 		} else {
-//			order.setFullReturn(true);
 			order.setStatus(OrderStatus.RETURNED);
 		}
 		

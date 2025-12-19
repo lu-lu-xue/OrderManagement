@@ -70,4 +70,10 @@ public class Order {
 				.map(ReturnedItem::getRefundAmount)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
+	
+	public List<String> getAllRefundTransactionIds(){
+		return this.getAllReturnedItems().stream()
+				.map(ReturnedItem::getRefundTransactionId)
+				.collect(Collectors.toList());
+	}
 }
