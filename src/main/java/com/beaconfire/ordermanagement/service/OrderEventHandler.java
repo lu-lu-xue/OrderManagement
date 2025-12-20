@@ -9,6 +9,7 @@ import com.beaconfire.ordermanagement.service.publisher.InventoryEventPublisher;
 import com.beaconfire.ordermanagement.service.publisher.NotificationEventPublisher;
 import com.beaconfire.ordermanagement.service.publisher.PaymentEventPublisher;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -116,6 +117,8 @@ public class OrderEventHandler {
 				));
 		
 		// 2. check refund type
+		// probably need to add try-catch block to catch logic exception
+		// ??
 		switch (event.getRefundType()) {
 			case CANCELLATION:
 				handleCancellationRefund(order, event);
@@ -176,48 +179,24 @@ public class OrderEventHandler {
 			return;
 		}
 		
-		// 2. update order status
-		order.setStatus(OrderStatus.CANCELLED);
+		// 2. update ReturnedItem status
+		updateReturnedItemsToCompleted(event);
 		
+		// 3. update order status
+		order.setStatus(OrderStatus.CANCELLED);
 		orderRepo.save(order);
-		log.info("Order {} cancelled, refund completed", event.getOrderId());
+		log.info("Order {} cancelled, refund completed", order.getId());
 	}
 	
 	private void handleReturnRefund(Order order, RefundCompletedEvent event) {
 		// check returnedItem list directly
-		// 1. check returnedItems
-		if (event.getReturnedItemIds() == null ||
-				event.getReturnedItemIds().isEmpty()) {
-			log.warn("No returned item IDs in refund event for order {}", event.getOrderId());
-			return;
-		}
+		// 1. update returnedItem status
+		updateReturnedItemsToCompleted(event);
 		
-		// 2. fetch all returned items
-		List<ReturnedItem> returnedItems = returnedItemRepo.findByIdIn(event.getReturnedItemIds());
-		
-		if (returnedItems.isEmpty()) {
-			log.error("No returned items found for IDs: {}", event.getReturnedItemIds());
-			return;
-		}
-		
-		// 3. update each returned item
-		for (ReturnedItem item : returnedItems) {
-			// idempotency
-			if (item.getRefundTransactionId() != null) {
-				log.info("ReturnedItem {} already has refund transaction ID", item.getId());
-				continue;
-			}
-			
-			item.setRefundTransactionId(event.getRefundTransactionId());
-			item.setRefundedAt(LocalDateTime.now());
-		}
-		
-		returnedItemRepo.saveAll(returnedItems);
-		
-		// 4. check if it's a full return
+		// 2. check if it's a full return
 		boolean isFullReturn = checkIfFullReturn(order);
 		
-		// 5. update order status
+		// 3. update order status
 		if (isFullReturn) {
 			if (order.getStatus() != OrderStatus.RETURNED) {
 				order.setStatus(OrderStatus.RETURNED);
@@ -229,16 +208,47 @@ public class OrderEventHandler {
 				log.info("Order {} partially returned", event.getOrderId());
 			}
 		}
-		
-		// 6. update refund amount for this order
-		BigDecimal currentRefund = order.getTotalRefundAmount() != null
-				? order.getTotalRefundAmount()
-				: BigDecimal.ZERO;
-//		order.setRefundAmount(currentRefund.add(event.getRefundAmount()));
-		
 		orderRepo.save(order);
 		log.info("Order {} return refund completed, amount: {}",
 				event.getOrderId(), event.getRefundAmount());
+	}
+	
+	/*
+	* organize the common code in handleCancellationRefund and handleReturnRefund
+	* to update returnedItem status
+	* if returnedItemIds are empty, throw exception
+	* */
+	private void updateReturnedItemsToCompleted(RefundCompletedEvent event){
+		List<String> returnedItemIds = event.getReturnedItemIds();
+		
+		// 1. if no ids, this is critical error
+		if (returnedItemIds == null || returnedItemIds.isEmpty()){
+			log.warn("No returned item IDs in refund event for order {}", event.getOrderId());
+			throw new IllegalStateException("Critical Audit Error: No returnedItemIds " +
+					"found in RefundCompletedEvent for Order " + event.getOrderId());
+		}
+		
+		List<ReturnedItem> items = returnedItemRepo.findByIdIn(returnedItemIds);
+		
+		// 2. if no ids found in database, throw exception
+		if (items.size() != returnedItemIds.size()){
+			throw new DataIntegrityViolationException("Database mismatch: " +
+					"Expected " + returnedItemIds.size() + "" +
+					" audit items, but found " + items.size());
+		}
+		
+		// 3. update those returnedItems
+		for (ReturnedItem item: items){
+			if (item.getRefundStatus() == RefundStatus.COMPLETED){
+				continue;
+			}
+			item.setRefundTransactionId(event.getRefundTransactionId());
+			item.setRefundedAt(event.getRefundedAt());
+			item.setRefundStatus(RefundStatus.COMPLETED);
+			item.setRefundAmount(event.getRefundAmount());
+		}
+		
+		returnedItemRepo.saveAll(items);
 	}
 	
 	/*
