@@ -1,7 +1,6 @@
 package com.beaconfire.ordermanagement.dto;
 
 import com.beaconfire.ordermanagement.entity.RefundType;
-import com.beaconfire.ordermanagement.entity.ReturnedItem;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

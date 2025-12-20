@@ -20,5 +20,6 @@ public enum OrderStatus {
 	RETURNED,            // return entire order
 	PENDING_PARTIALLY_RETURNED,
 	PARTIALLY_RETURNED,     //partial return
-	PROCESSING
+	PROCESSING,
+	MANUAL_INTERVENTION_REQUIRED
 }

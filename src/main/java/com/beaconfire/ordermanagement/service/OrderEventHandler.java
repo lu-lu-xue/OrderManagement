@@ -1,10 +1,7 @@
 package com.beaconfire.ordermanagement.service;
 
 import com.beaconfire.ordermanagement.dto.*;
-import com.beaconfire.ordermanagement.entity.Order;
-import com.beaconfire.ordermanagement.entity.OrderStatus;
-import com.beaconfire.ordermanagement.entity.RefundType;
-import com.beaconfire.ordermanagement.entity.ReturnedItem;
+import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.OrderNotFoundException;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
 import com.beaconfire.ordermanagement.repository.ReturnedItemRepository;
@@ -131,8 +128,44 @@ public class OrderEventHandler {
 		}
 	}
 	
+	/*
+	* handle failed refund
+	* */
 	public void handleRefundFailed(RefundFailedEvent event){
-	
+		log.error("CRITICAL: Refund failed for Order {}. Reason: {}",
+				event.getOrderId(), event.getFailedReason());
+		
+		// 1. fetch order
+		Order order = orderRepo.findById(event.getOrderId())
+				.orElseThrow(() -> new OrderNotFoundException(event.getOrderId()));
+		
+		// 2. update related ReturnedItem Status
+		List<String> returnedItemIds = event.getReturnedItemIds();
+		if (returnedItemIds == null || returnedItemIds.isEmpty()){
+			log.error("FATAL: RefundFailedEvent for Order {} contains NO" +
+					"returnedItemIds! This creates an audit gap.", event.getOrderId());
+			
+			// update orderStatus
+			order.setStatus(OrderStatus.MANUAL_INTERVENTION_REQUIRED);
+			orderRepo.save(order);
+			
+			throw new IllegalStateException("Refund failed but no returnedItemIds " +
+					"provided for order: " + event.getOrderId());
+		} else {
+			List<ReturnedItem> items = returnedItemRepo.findAllById(returnedItemIds);
+			for (ReturnedItem item: items){
+				item.setRefundStatus(RefundStatus.FAILED);
+				// set up the reason
+				item.setReturnReason(item.getReturnReason() + " | Refund failed: " + event.getFailedReason());
+			}
+			returnedItemRepo.saveAll(items);
+			
+			// update orderStatus
+			order.setStatus(OrderStatus.MANUAL_INTERVENTION_REQUIRED);
+			orderRepo.save(order);
+		}
+		
+		// publish notification to admin
 	}
 	
 	

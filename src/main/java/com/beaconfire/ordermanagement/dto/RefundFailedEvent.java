@@ -20,6 +20,7 @@ import java.util.List;
 @NoArgsConstructor
 public class RefundFailedEvent {
 	private String orderId;
+	private String failedReason;
 	private String refundTransactionId;
 	private BigDecimal refundAmount;
 	private LocalDateTime refundedAt;
