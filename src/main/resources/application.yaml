@@ -86,3 +86,21 @@ app:
       shipment-shipped: shipment.started
       shipment-delivered: shipment.delivered
 
+
+# For resilience4j
+resilience4j:
+  circuitbreaker:
+    instances:
+      productServiceCB:
+        registerHealthIndicator: true
+        slidingWindowSize: 10 # check the last 10 calls
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowType: COUNT_BASED
+        minimumNumberOfCalls: 5 # min calls before calculating error rate
+        waitDurationInOpenState: 5s # wait 5s before trying again
+        failureRateThreshold: 50 # Trip if 50% fail
+        slowCallRateThreshold: 100
+        slowCallDurationThreshold: 2000ms # any call > 2s is "slow"
+
+
+
