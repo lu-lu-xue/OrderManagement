@@ -2,6 +2,7 @@ package com.beaconfire.ordermanagement.service;
 
 import com.beaconfire.ordermanagement.client.payment.PaymentServiceClient;
 import com.beaconfire.ordermanagement.client.product.ProductServiceClient;
+import com.beaconfire.ordermanagement.client.shipment.ShipmentServiceClient;
 import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
@@ -42,7 +43,7 @@ public class OrderService {
 	private final NotificationEventPublisher notificationEventPublisher;
 	private final PaymentEventPublisher paymentEventPublisher;
 	private final PaymentServiceClient paymentClient;
-//	private final ShipmentServiceClient shipmentClient;
+	private final ShipmentServiceClient shipmentClient;
 	
 	
 	public OrderService(Executor executor,
@@ -52,7 +53,8 @@ public class OrderService {
 	                    InventoryEventPublisher inventoryEventPublisher,
 	                    NotificationEventPublisher notificationEventPublisher,
 	                    PaymentEventPublisher paymentEventPublisher,
-	                    PaymentServiceClient paymentClient){
+	                    PaymentServiceClient paymentClient,
+	                    ShipmentServiceClient shipmentClient){
 		this.executor = executor;
 		this.orderRepo = orderRepo;
 		this.returnedItemRepo = returnedItemRepo;
@@ -61,6 +63,7 @@ public class OrderService {
 		this.notificationEventPublisher = notificationEventPublisher;
 		this.paymentEventPublisher = paymentEventPublisher;
 		this.paymentClient = paymentClient;
+		this.shipmentClient = shipmentClient;
 	}
 	
 	// 1. place an order
@@ -116,7 +119,7 @@ public class OrderService {
 	}
 	
 	// 2. get order details
-	public CompletableFuture<OrderResponseDTO> getOrderDetails(String orderId){
+	public CompletableFuture<OrderDetailsDTO> getOrderDetails(String orderId){
 		// 1. fetch the entity using Optional - prevent NullPointerException
 		CompletableFuture<OrderResponseDTO> orderCF = CompletableFuture.supplyAsync(
 				() -> {
@@ -136,14 +139,14 @@ public class OrderService {
 				}, executor);
 		
 		// retrieve payment info
-		CompletableFuture<PaymentDTO> paymentCF = CompletableFuture.supplyAsync(
-				() -> paymentClient.get(orderId), executor)
-				.exceptionally(ex -> new PaymentDTO("Payment info unavailable"));
+		CompletableFuture<PaymentResponseDTO> paymentCF = CompletableFuture.supplyAsync(
+				() -> paymentClient.getPaymentByOrder(orderId), executor)
+				.exceptionally(ex -> new PaymentResponseDTO("Payment info unavailable"));
 		
-//		// retrieve shipment info
-//		CompletableFuture<ShipmentDTO> shipmentCF = CompletableFuture.supplyAsync(
-//				shipmentClient.get(orderId), executor)
-//				.exceptionally(ex -> new ShipmentDTO("pending"));
+		// retrieve shipment info
+		CompletableFuture<ShipmentResponseDTO> shipmentCF = CompletableFuture.supplyAsync(
+						() -> shipmentClient.getShipmentInfo(orderId), executor)
+				.exceptionally(ex -> new ShipmentResponseDTO("pending"));
 		
 		// aggregate all result
 		return CompletableFuture.allOf(orderCF, returnsCF, paymentCF)
@@ -156,10 +159,11 @@ public class OrderService {
 						
 						return new OrderDetailsDTO(
 								orderData,
-								paymentCF.join()
+								paymentCF.join(),
+								shipmentCF.join()
 						);
 				})
-				.orTimeOut(3, TimeUnit.SECONDS);
+				.orTimeout(3, TimeUnit.SECONDS);
 		
 	}
 	

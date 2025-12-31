@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,7 +40,10 @@ public interface PaymentServiceClient {
 	}
 	
 	@PostMapping("/api/v1/payments/{paymentId}")
-	ResponseEntity<PaymentResponseDTO> initiateRefund(
+	PaymentResponseDTO initiateRefund(
 			@PathVariable("paymentId") String paymentId,
 			@RequestBody PaymentRequestDTO request);
+	
+	@GetMapping("/apiv1/payments/{orderId}")
+	PaymentResponseDTO getPaymentByOrder(@PathVariable("orderId") String orderId);
 }

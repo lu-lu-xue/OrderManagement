@@ -349,7 +349,7 @@ public class OrderEventHandler {
 		);
 		
 		Order savedOrder = orderRepo.save(order);
-		orderRepo.flush(); // ensure the ID is re-assigned
+//		orderRepo.flush(); // ensure the ID is re-assigned
 		
 		// 4. obtain returned ids
 		List<String> returnedItemIds = returnedItems.stream()

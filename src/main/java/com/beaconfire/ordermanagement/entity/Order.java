@@ -41,6 +41,10 @@ public class Order {
 	@Enumerated(EnumType.STRING)
 	private OrderStatus status;  // type is OrderStatus
 	
+	// add optimistic locking
+	@Version
+	private Integer version; // Hibernate handles it automatically
+	
 	private BigDecimal totalAmount;
 	private LocalDateTime createdAt;
 	
