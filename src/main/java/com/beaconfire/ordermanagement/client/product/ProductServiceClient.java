@@ -1,6 +1,6 @@
 package com.beaconfire.ordermanagement.client.product;
 
-import com.beaconfire.ordermanagement.dto.ProductDetailsDTO;
+import com.beaconfire.ordermanagement.dto.ProductResponseDTO;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -11,6 +11,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
 
 /**
  * @author luluxue
@@ -51,5 +53,8 @@ public interface ProductServiceClient {
 	
 	// 2. check price and name snapshotting
 	@GetMapping("/api/v1/products/{id}")
-	ProductDetailsDTO getProductDetails(@PathVariable("id") String id);
+	ProductResponseDTO getProductDetails(@PathVariable("id") String id);
+	
+	@GetMapping("/api/v1/products/bulk")
+	List<ProductResponseDTO> getProductsByIds(@RequestParam("ids") List<String> ids);
 }

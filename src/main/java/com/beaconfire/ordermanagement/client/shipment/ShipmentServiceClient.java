@@ -18,6 +18,6 @@ public interface ShipmentServiceClient {
 	Logger log = LoggerFactory.getLogger(ShipmentServiceClient.class);
 	
 	// 1. check inventory
-	@GetMapping("/api/v1/shipment/{orderId}}")
+	@GetMapping("/api/v1/shipment/order/{orderId}}")
 	ShipmentResponseDTO getShipmentInfo(@PathVariable("orderId") String orderId);
 }

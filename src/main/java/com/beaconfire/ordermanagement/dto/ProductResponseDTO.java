@@ -13,7 +13,7 @@ import java.math.BigDecimal;
  * @author luluxue
  * @date 2025-11-21
  */
-//public record ProductDetailsDTO (
+//public record ProductResponseDTO (
 //		Long productId,
 //		String productName,
 //		BigDecimal unitPrice
@@ -24,7 +24,7 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductDetailsDTO{
+public class ProductResponseDTO {
 	@NotNull(message = "product id can't be null.")
 	private String productId;
 	@NotNull(message = "product name can't be null.")

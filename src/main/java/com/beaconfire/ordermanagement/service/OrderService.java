@@ -42,6 +42,7 @@ public class OrderService {
 	private final InventoryEventPublisher inventoryEventPublisher;
 	private final NotificationEventPublisher notificationEventPublisher;
 	private final PaymentEventPublisher paymentEventPublisher;
+	private final ProductServiceClient productClient;
 	private final PaymentServiceClient paymentClient;
 	private final ShipmentServiceClient shipmentClient;
 	
@@ -53,6 +54,7 @@ public class OrderService {
 	                    InventoryEventPublisher inventoryEventPublisher,
 	                    NotificationEventPublisher notificationEventPublisher,
 	                    PaymentEventPublisher paymentEventPublisher,
+	                    ProductServiceClient productClient,
 	                    PaymentServiceClient paymentClient,
 	                    ShipmentServiceClient shipmentClient){
 		this.executor = executor;
@@ -62,6 +64,7 @@ public class OrderService {
 		this.inventoryEventPublisher = inventoryEventPublisher;
 		this.notificationEventPublisher = notificationEventPublisher;
 		this.paymentEventPublisher = paymentEventPublisher;
+		this.productClient = productClient;
 		this.paymentClient = paymentClient;
 		this.shipmentClient = shipmentClient;
 	}
@@ -138,21 +141,71 @@ public class OrderService {
 							.toList();
 				}, executor);
 		
+		// retrieve product info
+		CompletableFuture<Map<String,ProductResponseDTO>> productsCF = orderCF.thenCompose(orderDTO -> {
+			List<String> productIds = orderDTO.getItems().stream()
+					.map(OrderItemResponseDTO::getProductId)
+					.distinct()
+					.toList();
+			
+			return CompletableFuture.supplyAsync(() -> {
+						List<ProductResponseDTO> products = productServiceClient.getProductsByIds(productIds);
+						
+						return products.stream()
+								.collect(Collectors.toMap(ProductResponseDTO::getProductId, p-> p));
+					}, executor)
+					.exceptionally(ex -> {
+						log.error("Product bulk fetch failed", ex);
+						return Collections.emptyMap();
+					});
+		});
+		
+		
 		// retrieve payment info
 		CompletableFuture<PaymentResponseDTO> paymentCF = CompletableFuture.supplyAsync(
 				() -> paymentClient.getPaymentByOrder(orderId), executor)
-				.exceptionally(ex -> new PaymentResponseDTO("Payment info unavailable"));
+				.exceptionally(ex -> {
+					log.error("Payment service is down: {}", ex.getMessage());
+					return PaymentResponseDTO.builder()
+							.status("UNKNOWN")
+							.paymentTransactionId("N/A")
+							.error(new ErrorResponseDTO(
+									"PAYMENT_SERVICE_UNAVAILABLE",
+									"payment information is unavailable",
+									"EXTERNAL_API_ERROR"))
+							.build();
+				});
+				
 		
 		// retrieve shipment info
 		CompletableFuture<ShipmentResponseDTO> shipmentCF = CompletableFuture.supplyAsync(
 						() -> shipmentClient.getShipmentInfo(orderId), executor)
-				.exceptionally(ex -> new ShipmentResponseDTO("pending"));
+				.exceptionally(ex -> {
+							log.error("Shipment service is down: {}", ex.getMessage());
+					return ShipmentResponseDTO.builder()
+							.trackingNumber("N/A")
+							.carrier("N/A")
+							.status("INFORMATION_UNAVAILABLE")
+							.estimatedArrival(null)
+							.build();
+				});
+				
 		
 		// aggregate all result
-		return CompletableFuture.allOf(orderCF, returnsCF, paymentCF)
+		return CompletableFuture.allOf(orderCF, returnsCF, paymentCF, shipmentCF)
 				.thenApply(v -> {
 						OrderResponseDTO orderData = orderCF.join();
 						List<ReturnedItemResponseDTO> returnData = returnsCF.join();
+						Map<String, ProductResponseDTO> productMap = productsCF.join();
+						
+//						// snapshot for the product
+//						orderData.getItems().forEach(item -> {
+//							ProductResponseDTO p = productMap.get(item.getProductId());
+//							if (p != null){
+//								item.setProductName(p.getName());
+//								item.setProductImageUrl(p.getImageUrl));
+//							}
+//						});
 						
 						// put return record into order
 						orderData.setReturnedItems(returnData);
@@ -291,7 +344,7 @@ public class OrderService {
 			}
 			
 			// 1b. Fetch details for financial snapshots (synch Feign call
-			ProductDetailsDTO productDetails;
+			ProductResponseDTO productDetails;
 			try {
 				productDetails = productServiceClient.getProductDetails(productId);
 			} catch (Exception ex) {

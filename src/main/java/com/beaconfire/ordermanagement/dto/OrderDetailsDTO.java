@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * @author luluxue
  * @date 2025-12-31
@@ -16,7 +14,10 @@ import java.util.concurrent.CompletableFuture;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderDetailsDTO {
-	private OrderResponseDTO response;
+	// from DB: order info
+	private OrderResponseDTO order;
+	// from paymentService, transactionId, status...
 	private PaymentResponseDTO payment;
+	// from shipmentService, trackingNumber, carrier...
 	private ShipmentResponseDTO shipment;
 }
