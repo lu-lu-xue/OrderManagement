@@ -115,20 +115,33 @@ public class OrderEventHandler {
 				.orElseThrow(() -> new OrderNotFoundException(
 						"Order not found with ID: " + event.getOrderId()
 				));
-		
-		// 2. check refund type
-		// probably need to add try-catch block to catch logic exception
-		// ??
-		switch (event.getRefundType()) {
-			case CANCELLATION:
-				handleCancellationRefund(order, event);
-				break;
-			case RETURN:
-				handleReturnRefund(order, event);
-				break;
-			default:
-				log.error("Unknown refund type: {}", event.getRefundType());
+		// add try-catch block
+		try{
+			// 2. check refund type
+			// probably need to add try-catch block to catch logic exception
+			// ??
+			switch (event.getRefundType()) {
+				case CANCELLATION:
+					handleCancellationRefund(order, event);
+					break;
+				case RETURN:
+					handleReturnRefund(order, event);
+					break;
+				default:
+					log.error("Unknown refund type: {}", event.getRefundType());
+			}
+		} catch (IllegalStateException | DataIntegrityViolationException e){
+			log.error("NON-RECOVERABLE ERROR: Failed to process refund completion" +
+					"for order {}. Stopping retries", event.getOrderId(), e);
+			
+			// update the orderStatus
+			order.setStatus(OrderStatus.MANUAL_INTERVENTION_REQUIRED);
+			orderRepo.save(order);
+			
+//			// send alert to DevOps
+//			alertService.notifyDevOps(event, e.getMessage());
 		}
+		
 	}
 	
 	/*
@@ -164,6 +177,7 @@ public class OrderEventHandler {
 			returnedItemRepo.saveAll(items);
 			
 			// update orderStatus
+			// manual intervention
 			order.setStatus(OrderStatus.MANUAL_INTERVENTION_REQUIRED);
 			orderRepo.save(order);
 		}
@@ -172,6 +186,11 @@ public class OrderEventHandler {
 	}
 	
 	
+	/*
+	* for both methods:
+	* handleCancellationRefund and handleReturnRefund
+	* they all need to call returnedItemRepo to update status
+	* */
 	private void handleCancellationRefund(Order order, RefundCompletedEvent event) {
 		// 1. idempotency check
 		if (order.getStatus() == OrderStatus.CANCELLED) {
@@ -208,6 +227,7 @@ public class OrderEventHandler {
 				log.info("Order {} partially returned", event.getOrderId());
 			}
 		}
+		
 		orderRepo.save(order);
 		log.info("Order {} return refund completed, amount: {}",
 				event.getOrderId(), event.getRefundAmount());
@@ -232,6 +252,8 @@ public class OrderEventHandler {
 		
 		// 2. if no ids found in database, throw exception
 		if (items.size() != returnedItemIds.size()){
+			// throw exception
+			// or manual intervention
 			throw new DataIntegrityViolationException("Database mismatch: " +
 					"Expected " + returnedItemIds.size() + "" +
 					" audit items, but found " + items.size());
@@ -239,6 +261,8 @@ public class OrderEventHandler {
 		
 		// 3. update those returnedItems
 		for (ReturnedItem item: items){
+			// idempotency check: if already processed, continue
+			// it considers network jitter
 			if (item.getRefundStatus() == RefundStatus.COMPLETED){
 				continue;
 			}
