@@ -2,8 +2,10 @@ package com.beaconfire.ordermanagement.service;
 
 import com.beaconfire.ordermanagement.dto.OrderItemResponseDTO;
 import com.beaconfire.ordermanagement.dto.OrderResponseDTO;
+import com.beaconfire.ordermanagement.dto.ReturnedItemResponseDTO;
 import com.beaconfire.ordermanagement.entity.Order;
 import com.beaconfire.ordermanagement.entity.OrderItem;
+import com.beaconfire.ordermanagement.entity.ReturnedItem;
 
 /**
  * @author luluxue
@@ -32,6 +34,20 @@ public class OrderMapper {
 				.unitPrice(item.getUnitPrice())
 				.quantity(item.getQuantity())
 				.subtotal(item.getSubtotal())
+				.build();
+	}
+	
+	// add toReturnedItemResponseDTO
+	// for getOrderDetails in OrderService
+	public static ReturnedItemResponseDTO toReturnedItemResponseDTO(ReturnedItem item){
+		return ReturnedItemResponseDTO.builder()
+				.id(item.getId())
+				.quantity(item.getQuantity())
+				.reason(item.getReturnReason())
+				.refundAmount(item.getRefundAmount())
+				.status(item.getRefundStatus())
+				.transactionId(item.getRefundTransactionId())
+				.refundedAt(item.getRefundedAt())
 				.build();
 	}
 }

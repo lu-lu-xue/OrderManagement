@@ -1,10 +1,12 @@
 package com.beaconfire.ordermanagement.service;
 
+import com.beaconfire.ordermanagement.client.payment.PaymentServiceClient;
 import com.beaconfire.ordermanagement.client.product.ProductServiceClient;
 import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.entity.*;
 import com.beaconfire.ordermanagement.exception.*;
 import com.beaconfire.ordermanagement.repository.OrderRepository;
+import com.beaconfire.ordermanagement.repository.ReturnedItemRepository;
 import com.beaconfire.ordermanagement.service.publisher.InventoryEventPublisher;
 import com.beaconfire.ordermanagement.service.publisher.NotificationEventPublisher;
 import com.beaconfire.ordermanagement.service.publisher.PaymentEventPublisher;
@@ -18,6 +20,9 @@ import java.lang.IllegalStateException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -29,23 +34,33 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class OrderService {
+	private final Executor executor;
 	private final OrderRepository orderRepo;
+	private final ReturnedItemRepository returnedItemRepo;
 	private final ProductServiceClient productServiceClient;
 	private final InventoryEventPublisher inventoryEventPublisher;
 	private final NotificationEventPublisher notificationEventPublisher;
 	private final PaymentEventPublisher paymentEventPublisher;
+	private final PaymentServiceClient paymentClient;
+//	private final ShipmentServiceClient shipmentClient;
 	
 	
-	public OrderService(OrderRepository orderRepo,
+	public OrderService(Executor executor,
+	                    OrderRepository orderRepo,
+	                    ReturnedItemRepository returnedItemRepo,
 	                    ProductServiceClient productServiceClient,
 	                    InventoryEventPublisher inventoryEventPublisher,
 	                    NotificationEventPublisher notificationEventPublisher,
-	                    PaymentEventPublisher paymentEventPublisher){
+	                    PaymentEventPublisher paymentEventPublisher,
+	                    PaymentServiceClient paymentClient){
+		this.executor = executor;
 		this.orderRepo = orderRepo;
+		this.returnedItemRepo = returnedItemRepo;
 		this.productServiceClient = productServiceClient;
 		this.inventoryEventPublisher = inventoryEventPublisher;
 		this.notificationEventPublisher = notificationEventPublisher;
 		this.paymentEventPublisher = paymentEventPublisher;
+		this.paymentClient = paymentClient;
 	}
 	
 	// 1. place an order
@@ -101,20 +116,58 @@ public class OrderService {
 	}
 	
 	// 2. get order details
-	public OrderResponseDTO getOrderDetails(String orderId){
+	public CompletableFuture<OrderResponseDTO> getOrderDetails(String orderId){
 		// 1. fetch the entity using Optional - prevent NullPointerException
-		Order order = orderRepo.findById(orderId)
-				.orElseThrow(() -> new OrderNotFoundException("Order not found with ID: " + orderId));
+		CompletableFuture<OrderResponseDTO> orderCF = CompletableFuture.supplyAsync(
+				() -> {
+					Order order = orderRepo.findByIdWithItems(orderId)
+							.orElseThrow(() -> new OrderNotFoundException(orderId));
+					// 2. convert the entity to a ResponseDTO for external transfer
+					return OrderMapper.toResponseDTO(order);
+				}, executor);
 		
-		// 2. convert the entity to a ResponseDTO for external transfer
-		return OrderMapper.toResponseDTO(order);
+		// retrieve all returnedItems info
+		CompletableFuture<List<ReturnedItemResponseDTO>> returnsCF = CompletableFuture.supplyAsync(
+				() -> {
+					List<ReturnedItem> items = returnedItemRepo.findAllByOrderId(orderId);
+					return items.stream()
+							.map(OrderMapper::toReturnedItemResponseDTO)
+							.toList();
+				}, executor);
+		
+		// retrieve payment info
+		CompletableFuture<PaymentDTO> paymentCF = CompletableFuture.supplyAsync(
+				() -> paymentClient.get(orderId), executor)
+				.exceptionally(ex -> new PaymentDTO("Payment info unavailable"));
+		
+//		// retrieve shipment info
+//		CompletableFuture<ShipmentDTO> shipmentCF = CompletableFuture.supplyAsync(
+//				shipmentClient.get(orderId), executor)
+//				.exceptionally(ex -> new ShipmentDTO("pending"));
+		
+		// aggregate all result
+		return CompletableFuture.allOf(orderCF, returnsCF, paymentCF)
+				.thenApply(v -> {
+						OrderResponseDTO orderData = orderCF.join();
+						List<ReturnedItemResponseDTO> returnData = returnsCF.join();
+						
+						// put return record into order
+						orderData.setReturnedItems(returnData);
+						
+						return new OrderDetailsDTO(
+								orderData,
+								paymentCF.join()
+						);
+				})
+				.orTimeOut(3, TimeUnit.SECONDS);
+		
 	}
 	
 	// 3. get all orders (history)
 	// with pagination, size, sorting order
 	public Page<OrderResponseDTO> getAll(Pageable pageable){
 		// 1. repo returns a Page<Order>
-		Page<Order> orderPage = orderRepo.findAll(pageable);
+		Page<Order> orderPage = orderRepo.findAllWithItems(pageable);
 		
 		// 2. map the contents of the Page<Order> to Page<OrderResponseDTO>
 		// map contents of Page<Order> to Page<OrderResponseDTO>

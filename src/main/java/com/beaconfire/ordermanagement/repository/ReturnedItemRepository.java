@@ -18,5 +18,5 @@ public interface ReturnedItemRepository extends JpaRepository<ReturnedItem, Stri
 	
 	// fetch returned by order id
 	@Query("SELECT r FROM ReturnedItem r WHERE r.orderItem.order.id = :orderId")
-	List<ReturnedItem> findByOrderId(@Param("orderId") String orderId);
+	List<ReturnedItem> findAllByOrderId(@Param("orderId") String orderId);
 }

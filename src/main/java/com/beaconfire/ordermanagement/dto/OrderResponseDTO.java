@@ -32,4 +32,8 @@ public class OrderResponseDTO {
 	
 	// line items (nested response DTO)
 	private List<OrderItemResponseDTO> items;
+	
+	// added the list of returned items
+	// it can be empty
+	private List<ReturnedItemResponseDTO> returnedItems;
 }
