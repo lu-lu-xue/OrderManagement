@@ -38,7 +38,6 @@ public class OrderService {
 	private final Executor executor;
 	private final OrderRepository orderRepo;
 	private final ReturnedItemRepository returnedItemRepo;
-	private final ProductServiceClient productServiceClient;
 	private final InventoryEventPublisher inventoryEventPublisher;
 	private final NotificationEventPublisher notificationEventPublisher;
 	private final PaymentEventPublisher paymentEventPublisher;
@@ -50,7 +49,6 @@ public class OrderService {
 	public OrderService(Executor executor,
 	                    OrderRepository orderRepo,
 	                    ReturnedItemRepository returnedItemRepo,
-	                    ProductServiceClient productServiceClient,
 	                    InventoryEventPublisher inventoryEventPublisher,
 	                    NotificationEventPublisher notificationEventPublisher,
 	                    PaymentEventPublisher paymentEventPublisher,
@@ -60,7 +58,6 @@ public class OrderService {
 		this.executor = executor;
 		this.orderRepo = orderRepo;
 		this.returnedItemRepo = returnedItemRepo;
-		this.productServiceClient = productServiceClient;
 		this.inventoryEventPublisher = inventoryEventPublisher;
 		this.notificationEventPublisher = notificationEventPublisher;
 		this.paymentEventPublisher = paymentEventPublisher;
@@ -149,7 +146,7 @@ public class OrderService {
 					.toList();
 			
 			return CompletableFuture.supplyAsync(() -> {
-						List<ProductResponseDTO> products = productServiceClient.getProductsByIds(productIds);
+						List<ProductResponseDTO> products = productClient.getProductsByIds(productIds);
 						
 						return products.stream()
 								.collect(Collectors.toMap(ProductResponseDTO::getProductId, p-> p));
@@ -339,14 +336,14 @@ public class OrderService {
 			Integer quantity = itemRequest.getQuantity();
 			
 			// 1a. check Inventory/availability (synchronous Feign call)
-			if (!productServiceClient.isProductAvailable(productId, quantity)) {
+			if (!productClient.isProductAvailable(productId, quantity)) {
 				throw new InventoryNotAvailableException("Sorry, the inventory of this product is not available right now.");
 			}
 			
 			// 1b. Fetch details for financial snapshots (synch Feign call
 			ProductResponseDTO productDetails;
 			try {
-				productDetails = productServiceClient.getProductDetails(productId);
+				productDetails = productClient.getProductDetails(productId);
 			} catch (Exception ex) {
 				throw new ProductNotFoundException("Could not retrieve details for this product: " + productId);
 			}

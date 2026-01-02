@@ -1,9 +1,6 @@
 package com.beaconfire.ordermanagement.controller;
 
-import com.beaconfire.ordermanagement.dto.CancelOrderRequestDTO;
-import com.beaconfire.ordermanagement.dto.OrderRequestDTO;
-import com.beaconfire.ordermanagement.dto.OrderResponseDTO;
-import com.beaconfire.ordermanagement.dto.ReturnOrderRequestDTO;
+import com.beaconfire.ordermanagement.dto.*;
 import com.beaconfire.ordermanagement.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -13,6 +10,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.concurrent.CompletableFuture;
 
 
 /**
@@ -48,10 +47,10 @@ public class OrderController {
 	
 	// 2. get order details
 	@GetMapping("/{id}")
-	public ResponseEntity<OrderResponseDTO> getOrderDetails(@PathVariable String id){
-		OrderResponseDTO orderRequestDTO = orderService.getOrderDetails(id);
+	public CompletableFuture<ResponseEntity<OrderDetailsDTO>> getOrderDetails(@PathVariable String id){
+		CompletableFuture<OrderDetailsDTO> orderDetailsDto = orderService.getOrderDetails(id);
 		
-		return ResponseEntity.ok(orderRequestDTO);
+		return orderDetailsDto.thenApply(ResponseEntity::ok);
 	}
 	
 	// 3. get all orders
